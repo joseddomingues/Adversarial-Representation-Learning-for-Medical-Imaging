@@ -11,9 +11,13 @@ import MedSinGAN.functions as functions
 import MedSinGAN.models as models
 
 
-# Train function
-# opt - configuration map defined in config.py
 def train(opt):
+    """
+    Trains the network globally
+    @param opt: configuration map defined in config.py
+    @return: Nothing
+    """
+
     print("Training model with the following parameters:")
     print("\t number of stages: {}".format(opt.train_stages))
     print("\t number of concurrently trained stages: {}".format(opt.train_depth))
@@ -54,7 +58,7 @@ def train(opt):
 
         # Initiates the discriminator.
         # If the scale is bigger than 0 => Load the previous discriminator and init next stage
-        # TODO: This could've been done with only one GenD outside the loop?
+        # TODO: This could've been done with only one GenD outside the loop? And then if >0 just init (No need to load)
         d_curr = init_D(opt)
         if scale_num > 0:
             d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
@@ -62,33 +66,68 @@ def train(opt):
 
         # Create the Writer to output stats
         writer = SummaryWriter(log_dir=opt.outf)
+
+        # Trains the Network on a specific scale
         fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, fixed_noise, noise_amp,
                                                                        opt, scale_num, writer)
 
-        torch.save(fixed_noise, '%s/fixed_noise.pth' % (opt.out_))
-        torch.save(generator, '%s/G.pth' % (opt.out_))
-        torch.save(reals, '%s/reals.pth' % (opt.out_))
-        torch.save(noise_amp, '%s/noise_amp.pth' % (opt.out_))
+        # Save stats, delete current discriminator and repeat loop
+        torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
+        torch.save(generator, '%s/G.pth' % opt.out_)
+        torch.save(reals, '%s/reals.pth' % opt.out_)
+        torch.save(noise_amp, '%s/noise_amp.pth' % opt.out_)
         del d_curr
+
+    # Close writer and return
     writer.close()
     return
 
 
+# Train the network on a specific scale
+# netD - configuration map defined in config.py
+# netG - configuration map defined in config.py
+# reals - configuration map defined in config.py
+# fixed_noise - configuration map defined in config.py
+# noise_amp - configuration map defined in config.py
+# opt - configuration map defined in config.py
+# depth - configuration map defined in config.py
+# writer - configuration map defined in config.py
+
+
 def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, writer):
+    """
+    Trains the network on a specific scale
+    @param netD: Discriminator
+    @param netG: Generator
+    @param reals: Array of the real images with different scales
+    @param fixed_noise: Noise to add in the iteration
+    @param noise_amp: Noise to add
+    @param opt: configuration map defined in config.py
+    @param depth: Current depth (scale)
+    @param writer: Writer
+    @return: fixed_noise, noise_amp, netG, netD
+    """
+
+    # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
 
+    # Get alpha
     alpha = opt.alpha
 
     ############################
     # define z_opt for training on reconstruction
     ###########################
+
+    # If on the beginning then use the first real image scale unless is animation
     if depth == 0:
         if opt.train_mode == "generation" or opt.train_mode == "retarget":
             z_opt = reals[0]
         elif opt.train_mode == "animation":
             z_opt = functions.generate_noise([opt.nc_im, reals_shapes[depth][2], reals_shapes[depth][3]],
                                              device=opt.device).detach()
+
+    # Else then generate noise depending on what is required
     else:
         if opt.train_mode == "generation" or opt.train_mode == "animation":
             z_opt = functions.generate_noise([opt.nfc,
@@ -98,16 +137,20 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         else:
             z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
                                              device=opt.device).detach()
+
+    # Append the noise to the fixed initial noise
     fixed_noise.append(z_opt.detach())
 
     ############################
     # define optimizers, learning rate schedulers, and learning rates for lower stages
     ###########################
+
     # setup optimizers for D
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
 
     # setup optimizers for G
     # remove gradients from stages that are not trained
+    # only trains opt.train_depth stages each time, each with a different learning rate
     for block in netG.body[:-opt.train_depth]:
         for param in block.parameters():
             param.requires_grad = False
@@ -133,14 +176,18 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     # calculate noise_amp
     ###########################
     if depth == 0:
+        # if the first stage then just append to noise amp
         noise_amp.append(1)
     else:
+        # if not the first stage append 0 and then generate result using G
         noise_amp.append(0)
         z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
+        # define criterion and calculate the loss
         criterion = nn.MSELoss()
         rec_loss = criterion(z_reconstruction, real)
 
+        # calculate RMSE, multiply byt the initial amp and change the last one to it
         RMSE = torch.sqrt(rec_loss).detach()
         _noise_amp = opt.noise_amp_init * RMSE
         noise_amp[-1] = _noise_amp
@@ -159,21 +206,25 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
         for j in range(opt.Dsteps):
+
             # train with real
             netD.zero_grad()
             output = netD(real)
             errD_real = -output.mean()
 
             # train with fake
+            # generator only trains in the last iteration of Dsteps
             if j == opt.Dsteps - 1:
                 fake = netG(noise, reals_shapes, noise_amp)
             else:
                 with torch.no_grad():
                     fake = netG(noise, reals_shapes, noise_amp)
 
+            # classify the result from generator
             output = netD(fake.detach())
             errD_fake = output.mean()
 
+            # calculate penalty, do backward pass and step
             gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
             errD_total = errD_real + errD_fake + gradient_penalty
             errD_total.backward()
@@ -182,9 +233,12 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
+        # Once again classify the fake after update
         output = netD(fake)
         errG = -output.mean()
 
+        # having alpha != 0 then generate new output from noise and calculate MSE
+        # TODO: Why MSE while previously was RMSE
         if alpha != 0:
             loss = nn.MSELoss()
             rec = netG(fixed_noise, reals_shapes, noise_amp)
@@ -192,10 +246,12 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         else:
             rec_loss = 0
 
+        # zero grads and apply backward pass
         netG.zero_grad()
         errG_total = errG + rec_loss
         errG_total.backward()
 
+        # optimizer applied G number of steps
         for _ in range(opt.Gsteps):
             optimizerG.step()
 
@@ -217,11 +273,25 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         schedulerG.step()
         # break
 
+    # saves the networks
     functions.save_networks(netG, netD, z_opt, opt)
     return fixed_noise, noise_amp, netG, netD
 
 
 def generate_samples(netG, opt, depth, noise_amp, writer, reals, iter, n=25):
+    """
+    Generate samples to log results
+    @param netG: Generator
+    @param opt: configuration map defined in config.py
+    @param depth: Current depth (scale)
+    @param noise_amp: Noise to ampl
+    @param writer: Writer to log results
+    @param reals: List of reals images with different scales
+    @param iter: Current iteration
+    @param n: Number of samples to generate
+    @return:
+    """
+
     opt.out_ = functions.generate_dir2save(opt)
     dir2save = '{}/gen_samples_stage_{}'.format(opt.out_, depth)
     reals_shapes = [r.shape for r in reals]
@@ -243,17 +313,25 @@ def generate_samples(netG, opt, depth, noise_amp, writer, reals, iter, n=25):
         writer.add_image('gen_images_{}'.format(depth), grid, iter)
 
 
-# Creates the generator, sends it to gpu and apply weights
-# opt - configuration map defined in config.py
 def init_G(opt):
+    """
+    Creates the generator, sends it to gpu and apply weights
+    @param opt: Configuration map defined in config.py
+    @return: The generator network
+    """
+
     netG = models.GrowingGenerator(opt).to(opt.device)
     netG.apply(models.weights_init)
     return netG
 
 
-# Creates the generator, sends it to gpu and apply weights
-# opt - configuration map defined in config.py
 def init_D(opt):
+    """
+    Creates the discriminator, sends it to gpu and apply weights
+    @param opt: Configuration map defined in config.py
+    @return: The discriminator network
+    """
+
     netD = models.Discriminator(opt).to(opt.device)
     netD.apply(models.weights_init)
     return netD

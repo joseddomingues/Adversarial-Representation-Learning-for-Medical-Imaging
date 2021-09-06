@@ -10,11 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from ConSinGAN.imresize import imresize
 from albumentations import HueSaturationValue, IAAAdditiveGaussianNoise, GaussNoise, OneOf, \
     Compose, MultiplicativeNoise, ToSepia, ChannelDropout, ChannelShuffle, Cutout, InvertImg
 from skimage import color, morphology, filters
 from skimage import io as img
+
+from MedSinGAN.imresize import imresize
 
 
 def denorm(x):
@@ -127,7 +128,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
 
 
 def read_image(opt):
-    x = img.imread('%s' % opt.input_name)
+    x = img.imread('%s' % (opt.input_name))
     x = np2torch(x, opt)
     x = x[:, 0:3, :, :]
     return x
@@ -149,9 +150,9 @@ def np2torch(x, opt):
         x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
-    if not opt.not_cuda:
+    if not (opt.not_cuda):
         x = move_to_gpu(x)
-    x = x.type(torch.cuda.FloatTensor) if not opt.not_cuda else x.type(torch.FloatTensor)
+    x = x.type(torch.cuda.FloatTensor) if not (opt.not_cuda) else x.type(torch.FloatTensor)
     x = norm(x)
     return x
 
@@ -166,19 +167,19 @@ def torch2uint8(x):
 
 
 def read_image2np(opt):
-    x = img.imread('%s' % opt.input_name)
+    x = img.imread('%s' % (opt.input_name))
     x = x[:, :, 0:3]
     return x
 
 
 def save_networks(netG, netDs, z, opt):
-    torch.save(netG.state_dict(), '%s/netG.pth' % opt.outf)
+    torch.save(netG.state_dict(), '%s/netG.pth' % (opt.outf))
     if isinstance(netDs, list):
         for i, netD in enumerate(netDs):
             torch.save(netD.state_dict(), '%s/netD_%s.pth' % (opt.outf, str(i)))
     else:
-        torch.save(netDs.state_dict(), '%s/netD.pth' % opt.outf)
-    torch.save(z, '%s/z_opt.pth' % opt.outf)
+        torch.save(netDs.state_dict(), '%s/netD.pth' % (opt.outf))
+    torch.save(z, '%s/z_opt.pth' % (opt.outf))
 
 
 def adjust_scales2image(real_, opt):

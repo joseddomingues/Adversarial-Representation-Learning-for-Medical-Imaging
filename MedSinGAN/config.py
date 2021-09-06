@@ -1,8 +1,12 @@
 import argparse
 
 
-# Obtains the arguments of the parser
 def get_arguments():
+    """
+    Obtains the arguments of the parser
+    @return: An map of options
+    """
+
     parser = argparse.ArgumentParser()
 
     # workspace:

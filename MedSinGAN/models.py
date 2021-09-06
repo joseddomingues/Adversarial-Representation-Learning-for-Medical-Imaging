@@ -4,9 +4,13 @@ import torch
 import torch.nn as nn
 
 
-# Initiates the models weight according to best practices
-# model - Model to initiate the weights
 def weights_init(model):
+    """
+    Initiates the models weight according to best practices
+    @param model: Model to initiate the weights
+    @return: Nothing
+    """
+
     classname = model.__class__.__name__
     if classname.find('Conv2d') != -1:
         model.weight.data.normal_(0.0, 0.02)
@@ -15,9 +19,13 @@ def weights_init(model):
         model.bias.data.fill_(0)
 
 
-# Get the respective activation function according to the options map
-# opt - Option map to get the respective activation function
 def get_activation(opt):
+    """
+    Get the respective activation function according to the options map
+    @param opt: Option map to get the respective activation function
+    @return: The activation function according to the map
+    """
+
     activations = {"lrelu": nn.LeakyReLU(opt.lrelu_alpha, inplace=True),
                    "elu": nn.ELU(alpha=1.0, inplace=True),
                    "prelu": nn.PReLU(num_parameters=1, init=0.25),
@@ -27,14 +35,37 @@ def get_activation(opt):
 
 
 def upsample(x, size):
-    x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)
+    """
+    Upsamples the given data in a certain scale
+    @param x: Data to upsample
+    @param size: Scale to upsample in each measure
+    @return: The upsampled data
+    """
+
+    #x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)
+
+    # TODO: CHECK
+    x_up = nn.Upsample(x, size=size, mode='bicubic', align_corners=True)
     return x_up
 
 
-# Convolution Block used in the model construction
-# Combination of Sequential layers (Conv2d - BatchNormalization - Activation Function)
 class ConvBlock(nn.Sequential):
-    def __init__(self, in_channel: int, out_channel: int, ker_size: int, padd: int, opt, generator=False):
+    """
+    Convolution Block used in the model construction
+    Combination of Sequential layers (Conv2d - BatchNormalization - Activation Function)
+    """
+
+    def __init__(self, in_channel, out_channel, ker_size, padd, opt, generator=False):
+        """
+        Constructor of the Conv Block
+        @param in_channel: Number of in channels
+        @param out_channel: Number of out channels
+        @param ker_size: Kernel size
+        @param padd: Padding to apply
+        @param opt: Map of options
+        @param generator: Boolean to add batch normalization layer
+        """
+
         super(ConvBlock, self).__init__()
         self.add_module('conv',
                         nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=ker_size, stride=1,
@@ -44,9 +75,17 @@ class ConvBlock(nn.Sequential):
         self.add_module(opt.activation, get_activation(opt))
 
 
-# Discriminator model that will evaluate the generator along the way
 class Discriminator(nn.Module):
+    """
+    Discriminator model that will evaluate the generator along the way
+    """
+
     def __init__(self, opt):
+        """
+        Constructor of the Discriminator model
+        @param opt: Option map
+        """
+
         super(Discriminator, self).__init__()
 
         # Get the option map and the number of channels per conv layer
@@ -70,17 +109,30 @@ class Discriminator(nn.Module):
 
         # TODO: Should be added an activation function like leaky relu? No FC layers but default model is not that deep
 
-    # Forward pass simply applies the layers by order
     def forward(self, x):
+        """
+        Forward pass simply applies the layers by order
+        @param x: Data to feed the network to classify the input
+        @return: The classification made by the network
+        """
+
         head = self.head(x)
         body = self.body(head)
         out = self.tail(body)
         return out
 
 
-# Generator model for generating images from a single one
 class GrowingGenerator(nn.Module):
+    """
+    Generator model for generating images from a single one
+    """
+
     def __init__(self, opt):
+        """
+        Constructor of the Generator Model
+        @param opt: Option map
+        """
+
         super(GrowingGenerator, self).__init__()
 
         # Get the option map and the number of channels per conv layer
@@ -113,12 +165,22 @@ class GrowingGenerator(nn.Module):
                       padding=opt.padd_size),
             nn.Tanh())
 
-    # Prepare the model for the next stage by adding a copy of the first stage to the end of the body
     def init_next_stage(self):
+        """
+        Prepare the model for the next stage by adding a copy of the first stage to the end of the body
+        @return: Nothing
+        """
+
         self.body.append(copy.deepcopy(self.body[-1]))
 
-    # Forward pass that also applies upsampling
     def forward(self, noise, real_shapes, noise_amp):
+        """
+        Forward pass that also applies upsampling
+        @param noise: Noise that is the input to the network
+        @param real_shapes: Shappes of the real images to calculate other noises
+        @param noise_amp: The noise ampliation that should be done
+        @return: The new generated output
+        """
 
         # 1 - Apply a padding of 1 to some noise and then the head block
         x = self.head(self._pad(noise[0]))
