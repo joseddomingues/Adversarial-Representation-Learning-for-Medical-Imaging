@@ -1,6 +1,6 @@
 # Adversarial-Representation-Learning-for-Medical-Imaging
 
-## Brief Description
+Brief Description
 ---
 The goal of this work is to investigate unsupervised representation learning methods in the context of medical imaging, with the goal of learning representations useful for the end task of lesion and tumor segmentation.
 

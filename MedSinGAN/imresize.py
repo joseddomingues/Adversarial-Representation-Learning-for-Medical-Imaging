@@ -1,29 +1,54 @@
-from math import pi
-
 import numpy as np
 import torch
+from math import pi
 from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 
 
 def denorm(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     out = (x + 1) / 2
     # TODO: Does the same as Sigmoid for example? Difference?
     return out.clamp(0, 1)
 
 
 def norm(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     out = (x - 0.5) * 2
     return out.clamp(-1, 1)
 
 
 def move_to_gpu(t):
+    """
+
+    @param t:
+    @return:
+    """
+
     if torch.cuda.is_available():
         t = t.to(torch.device('cuda'))
     return t
 
 
+# [Batch Size, Channels (Depth), Height (Rows), Width (Columns)]
 def np2torch(x, opt):
+    """
+
+    @param x:
+    @param opt:
+    @return:
+    """
+
     if opt.nc_im == 3:
         x = x[:, :, :, None]
         x = x.transpose((3, 2, 0, 1)) / 255
@@ -41,6 +66,12 @@ def np2torch(x, opt):
 
 
 def torch2uint8(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     x = x[0, :, :, :]
     x = x.permute((1, 2, 0))
     x = 255 * denorm(x)
@@ -53,6 +84,14 @@ def torch2uint8(x):
 
 
 def imresize(im, scale, opt):
+    """
+
+    @param im:
+    @param scale:
+    @param opt:
+    @return:
+    """
+
     im = torch2uint8(im)
     im = imresize_in(im, scale_factor=scale)
     im = np2torch(im, opt)
@@ -60,6 +99,14 @@ def imresize(im, scale, opt):
 
 
 def imresize_to_shape(im, output_shape, opt):
+    """
+
+    @param im:
+    @param output_shape:
+    @param opt:
+    @return:
+    """
+
     im = torch2uint8(im)
     im = imresize_in(im, output_shape=output_shape)
     im = np2torch(im, opt)
@@ -67,6 +114,17 @@ def imresize_to_shape(im, output_shape, opt):
 
 
 def imresize_in(im, scale_factor=None, output_shape=None, kernel=None, antialiasing=True, kernel_shift_flag=False):
+    """
+
+    @param im:
+    @param scale_factor:
+    @param output_shape:
+    @param kernel:
+    @param antialiasing:
+    @param kernel_shift_flag:
+    @return:
+    """
+
     # First standardize values and fill missing arguments (if needed) by deriving scale from output shape or vice versa
     scale_factor, output_shape = fix_scale_and_size(im.shape, output_shape, scale_factor)
 
@@ -109,6 +167,14 @@ def imresize_in(im, scale_factor=None, output_shape=None, kernel=None, antialias
 
 
 def fix_scale_and_size(input_shape, output_shape, scale_factor):
+    """
+
+    @param input_shape:
+    @param output_shape:
+    @param scale_factor:
+    @return:
+    """
+
     # First fixing the scale-factor (if given) to be standardized the function expects (a list of scale factors in the
     # same size as the number of input dimensions)
     if scale_factor is not None:
@@ -138,10 +204,20 @@ def fix_scale_and_size(input_shape, output_shape, scale_factor):
 
 
 def contributions(in_length, out_length, scale, kernel, kernel_width, antialiasing):
-    # This function calculates a set of 'filters' and a set of field_of_view that will later on be applied
-    # such that each position from the field_of_view will be multiplied with a matching filter from the
-    # 'weights' based on the interpolation method and the distance of the sub-pixel location from the pixel centers
-    # around it. This is only done for one dimension of the image.
+    """
+    This function calculates a set of 'filters' and a set of field_of_view that will later on be applied
+    such that each position from the field_of_view will be multiplied with a matching filter from the
+    'weights' based on the interpolation method and the distance of the sub-pixel location from the pixel centers
+    around it. This is only done for one dimension of the image.
+
+    @param in_length:
+    @param out_length:
+    @param scale:
+    @param kernel:
+    @param kernel_width:
+    @param antialiasing:
+    @return:
+    """
 
     # When anti-aliasing is activated (default and only for downscaling) the receptive field is stretched to size of
     # 1/sf. this means filtering is more 'low-pass filter'.
@@ -198,6 +274,15 @@ def contributions(in_length, out_length, scale, kernel, kernel_width, antialiasi
 
 
 def resize_along_dim(im, dim, weights, field_of_view):
+    """
+
+    @param im:
+    @param dim:
+    @param weights:
+    @param field_of_view:
+    @return:
+    """
+
     # To be able to act on each dim, we swap so that dim 0 is the wanted dim to resize
     tmp_im = np.swapaxes(im, dim, 0)
 
@@ -218,6 +303,16 @@ def resize_along_dim(im, dim, weights, field_of_view):
 
 
 def numeric_kernel(im, kernel, scale_factor, output_shape, kernel_shift_flag):
+    """
+
+    @param im:
+    @param kernel:
+    @param scale_factor:
+    @param output_shape:
+    @param kernel_shift_flag:
+    @return:
+    """
+
     # See kernel_shift function to understand what this is
     if kernel_shift_flag:
         kernel = kernel_shift(kernel, scale_factor)
@@ -233,6 +328,13 @@ def numeric_kernel(im, kernel, scale_factor, output_shape, kernel_shift_flag):
 
 
 def kernel_shift(kernel, sf):
+    """
+
+    @param kernel:
+    @param sf:
+    @return:
+    """
+
     # There are two reasons for shifting the kernel:
     # 1. Center of mass is not in the center of the kernel which creates ambiguity. There is no possible way to know
     #    the degradation process included shifting so we always assume center of mass is center of the kernel.
@@ -263,6 +365,12 @@ def kernel_shift(kernel, sf):
 
 
 def cubic(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     absx = np.abs(x)
     absx2 = absx ** 2
     absx3 = absx ** 3
@@ -271,20 +379,44 @@ def cubic(x):
 
 
 def lanczos2(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     return (((np.sin(pi * x) * np.sin(pi * x / 2) + np.finfo(np.float32).eps) /
              ((pi ** 2 * x ** 2 / 2) + np.finfo(np.float32).eps))
             * (abs(x) < 2))
 
 
 def box(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     return ((-0.5 <= x) & (x < 0.5)) * 1.0
 
 
 def lanczos3(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     return (((np.sin(pi * x) * np.sin(pi * x / 3) + np.finfo(np.float32).eps) /
              ((pi ** 2 * x ** 2 / 3) + np.finfo(np.float32).eps))
             * (abs(x) < 3))
 
 
 def linear(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     return (x + 1) * ((-1 <= x) & (x < 0)) + (1 - x) * ((0 <= x) & (x <= 1))

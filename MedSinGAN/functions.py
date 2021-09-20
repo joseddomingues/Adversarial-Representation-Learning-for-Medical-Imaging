@@ -1,13 +1,12 @@
 import copy
 import datetime
-import math
-import os
-import random
-
 import dateutil.tz
 import imageio
+import math
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import random
 import torch
 import torch.nn as nn
 from albumentations import HueSaturationValue, IAAAdditiveGaussianNoise, GaussNoise, OneOf, \
@@ -19,16 +18,34 @@ from MedSinGAN.imresize import imresize
 
 
 def denorm(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     out = (x + 1) / 2
     return out.clamp(0, 1)
 
 
 def norm(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     out = (x - 0.5) * 2
     return out.clamp(-1, 1)
 
 
 def convert_image_np(inp):
+    """
+
+    @param inp:
+    @return:
+    """
+
     if inp.shape[1] == 3:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1, :, :, :])
@@ -43,41 +60,88 @@ def convert_image_np(inp):
 
 
 def generate_noise(size, num_samp=1, device='cuda', type='gaussian', scale=1):
+    """
+
+    @param size:
+    @param num_samp:
+    @param device:
+    @param type:
+    @param scale:
+    @return:
+    """
+
     if type == 'gaussian':
         noise = torch.randn(num_samp, size[0], round(size[1] / scale), round(size[2] / scale), device=device)
         noise = upsampling(noise, size[1], size[2])
+
     elif type == 'gaussian_mixture':
         noise1 = torch.randn(num_samp, size[0], size[1], size[2], device=device) + 5
         noise2 = torch.randn(num_samp, size[0], size[1], size[2], device=device)
         noise = noise1 + noise2
+
     elif type == 'uniform':
         noise = torch.randn(num_samp, size[0], size[1], size[2], device=device)
+
     else:
         raise NotImplementedError
     return noise
 
 
 def upsampling(im, sx, sy):
+    """
+
+    @param im:
+    @param sx:
+    @param sy:
+    @return:
+    """
+
     m = nn.Upsample(size=[round(sx), round(sy)], mode='bilinear', align_corners=True)
     return m(im)
 
 
 def move_to_gpu(t):
-    if (torch.cuda.is_available()):
+    """
+
+    @param t:
+    @return:
+    """
+
+    if torch.cuda.is_available():
         t = t.to(torch.device('cuda'))
     return t
 
 
 def move_to_cpu(t):
+    """
+
+    @param t:
+    @return:
+    """
+
     t = t.to(torch.device('cpu'))
     return t
 
 
 def save_image(name, image):
+    """
+
+    @param name:
+    @param image:
+    @return:
+    """
     plt.imsave(name, convert_image_np(image), vmin=0, vmax=1)
 
 
 def sample_random_noise(depth, reals_shapes, opt):
+    """
+
+    @param depth:
+    @param reals_shapes:
+    @param opt:
+    @return:
+    """
+
     noise = []
     for d in range(depth + 1):
         if d == 0:
@@ -96,6 +160,17 @@ def sample_random_noise(depth, reals_shapes, opt):
 
 
 def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
+    """
+
+    @param netD:
+    @param real_data:
+    @param fake_data:
+    @param LAMBDA:
+    @param device:
+    @return:
+    """
+
+    # TODO: Is this necessary? Delete?
     MSGGan = False
     if MSGGan:
         alpha = torch.rand(1, 1)
@@ -128,13 +203,27 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
 
 
 def read_image(opt):
-    x = img.imread('%s' % (opt.input_name))
+    """
+
+    @param opt:
+    @return:
+    """
+
+    # TODO: Why not just read with torch vision???
+    x = img.imread('%s' % opt.input_name)
     x = np2torch(x, opt)
     x = x[:, 0:3, :, :]
     return x
 
 
 def read_image_dir(dir, opt):
+    """
+
+    @param dir:
+    @param opt:
+    @return:
+    """
+
     x = img.imread(dir)
     x = np2torch(x, opt)
     x = x[:, 0:3, :, :]
@@ -142,6 +231,13 @@ def read_image_dir(dir, opt):
 
 
 def np2torch(x, opt):
+    """
+
+    @param x:
+    @param opt:
+    @return:
+    """
+
     if opt.nc_im == 3:
         x = x[:, :, :, None]
         x = x.transpose((3, 2, 0, 1)) / 255
@@ -158,6 +254,12 @@ def np2torch(x, opt):
 
 
 def torch2uint8(x):
+    """
+
+    @param x:
+    @return:
+    """
+
     x = x[0, :, :, :]
     x = x.permute((1, 2, 0))
     x = 255 * denorm(x)
@@ -167,22 +269,44 @@ def torch2uint8(x):
 
 
 def read_image2np(opt):
-    x = img.imread('%s' % (opt.input_name))
+    """
+
+    @param opt:
+    @return:
+    """
+
+    x = img.imread('%s' % opt.input_name)
     x = x[:, :, 0:3]
     return x
 
 
 def save_networks(netG, netDs, z, opt):
-    torch.save(netG.state_dict(), '%s/netG.pth' % (opt.outf))
+    """
+
+    @param netG:
+    @param netDs:
+    @param z:
+    @param opt:
+    @return:
+    """
+
+    torch.save(netG.state_dict(), '%s/netG.pth' % opt.outf)
     if isinstance(netDs, list):
         for i, netD in enumerate(netDs):
             torch.save(netD.state_dict(), '%s/netD_%s.pth' % (opt.outf, str(i)))
     else:
-        torch.save(netDs.state_dict(), '%s/netD.pth' % (opt.outf))
-    torch.save(z, '%s/z_opt.pth' % (opt.outf))
+        torch.save(netDs.state_dict(), '%s/netD.pth' % opt.outf)
+    torch.save(z, '%s/z_opt.pth' % opt.outf)
 
 
 def adjust_scales2image(real_, opt):
+    """
+
+    @param real_:
+    @param opt:
+    @return:
+    """
+
     opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3]]), 1)
     real = imresize(real_, opt.scale1, opt)
 
@@ -192,6 +316,13 @@ def adjust_scales2image(real_, opt):
 
 
 def create_reals_pyramid(real, opt):
+    """
+
+    @param real:
+    @param opt:
+    @return:
+    """
+
     reals = []
     # use old rescaling method for harmonization
     if opt.train_mode == "harmonization":
@@ -211,6 +342,12 @@ def create_reals_pyramid(real, opt):
 
 
 def load_trained_model(opt):
+    """
+
+    @param opt:
+    @return:
+    """
+
     dir = generate_dir2save(opt)
 
     if os.path.exists(dir):
@@ -225,6 +362,12 @@ def load_trained_model(opt):
 
 
 def generate_dir2save(opt):
+    """
+
+    @param opt:
+    @return:
+    """
+
     training_image_name = opt.input_name[:-4].split("/")[-1]
     dir2save = 'TrainedModels/{}/'.format(training_image_name)
     dir2save += opt.timestamp
@@ -243,6 +386,12 @@ def generate_dir2save(opt):
 
 
 def post_config(opt):
+    """
+
+    @param opt:
+    @return:
+    """
+
     # init fixed parameters
     opt.device = torch.device("cpu" if opt.not_cuda else "cuda:{}".format(opt.gpu))
     opt.noise_amp_init = opt.noise_amp
@@ -259,6 +408,12 @@ def post_config(opt):
 
 
 def load_config(opt):
+    """
+
+    @param opt:
+    @return:
+    """
+
     if not os.path.exists(opt.model_dir):
         print("Model not found: {}".format(opt.model_dir))
         exit()
@@ -282,6 +437,13 @@ def load_config(opt):
 
 
 def dilate_mask(mask, opt):
+    """
+
+    @param mask:
+    @param opt:
+    @return:
+    """
+
     if opt.train_mode == "harmonization":
         element = morphology.disk(radius=7)
     if opt.train_mode == "editing":
@@ -300,6 +462,12 @@ def dilate_mask(mask, opt):
 
 
 def shuffle_grid(image, max_tiles=5):
+    """
+
+    @param image:
+    @param max_tiles:
+    @return:
+    """
     tiles = []
     img_w, img_h = image.shape[0], image.shape[1]
     _max_tiles = random.randint(1, max_tiles)
@@ -356,11 +524,20 @@ def shuffle_grid(image, max_tiles=5):
 
 
 class Augment:
+    """
+
+    """
+
     def __init__(self):
         super().__init__()
         self._transofrm = self.strong_aug()
 
     def strong_aug(self):
+        """
+
+        @return:
+        """
+
         color_r = random.randint(0, 256)
         color_g = random.randint(0, 256)
         color_b = random.randint(0, 256)
@@ -390,13 +567,40 @@ class Augment:
         ])
 
     def transform(self, **x):
+        """
+
+        @param x:
+        @return:
+        """
+
         _transform = self.strong_aug()
         return _transform(**x)
 
 
 def generate_gif(dir2save, netG, fixed_noise, reals, noise_amp, opt, alpha=0.1, beta=0.9, start_scale=1,
                  num_images=100, fps=10):
+    """
+
+    @param dir2save:
+    @param netG:
+    @param fixed_noise:
+    @param reals:
+    @param noise_amp:
+    @param opt:
+    @param alpha:
+    @param beta:
+    @param start_scale:
+    @param num_images:
+    @param fps:
+    @return:
+    """
+
     def denorm_for_gif(img):
+        """
+
+        @param img:
+        @return:
+        """
         img = denorm(img).detach()
         img = img[0, :, :, :].cpu().numpy()
         img = img.transpose(1, 2, 0) * 255
