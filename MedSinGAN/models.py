@@ -108,6 +108,7 @@ class Discriminator(nn.Module):
         self.tail = nn.Conv2d(in_channels=num_channels, out_channels=1, kernel_size=opt.ker_size, padding=opt.padd_size)
 
         # TODO: Should be added an activation function like leaky relu? No FC layers but default model is not that deep
+        # TODO: Experimentar
 
     def forward(self, x):
         """
