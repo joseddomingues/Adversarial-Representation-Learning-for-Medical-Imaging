@@ -42,10 +42,7 @@ def upsample(x, size):
     @return: The upsampled data
     """
 
-    #x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)
-
-    # TODO: CHECK
-    x_up = nn.Upsample(x, size=size, mode='bicubic', align_corners=True)
+    x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)
     return x_up
 
 
