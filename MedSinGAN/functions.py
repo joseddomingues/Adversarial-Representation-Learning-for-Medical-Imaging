@@ -309,11 +309,11 @@ def adjust_scales2image(real_, opt):
     @return:
     """
 
-    opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3]]), 1)
+    opt.scale1 = min(opt.im_max_size / max([real_.shape[2], real_.shape[3]]), 1)
     real = imresize(real_, opt.scale1, opt)
 
     opt.stop_scale = opt.train_stages - 1
-    opt.scale_factor = math.pow(opt.min_size / (min(real.shape[2], real.shape[3])), 1 / opt.stop_scale)
+    opt.scale_factor = math.pow(opt.im_min_size / (min(real.shape[2], real.shape[3])), 1 / opt.stop_scale)
     return real
 
 

@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     if opt.train_mode == "generation" or opt.train_mode == "retarget" or opt.train_mode == "animation":
         if opt.train_mode == "animation":
-            opt.min_size = 20
+            opt.im_min_size = 20
         from MedSinGAN.training import *
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         if opt.fine_tune:
