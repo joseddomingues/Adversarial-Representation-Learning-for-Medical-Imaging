@@ -10,7 +10,9 @@ import random
 import torch
 import torch.nn as nn
 from albumentations import HueSaturationValue, IAAAdditiveGaussianNoise, GaussNoise, OneOf, \
-    Compose, MultiplicativeNoise, ToSepia, ChannelDropout, ChannelShuffle, Cutout, InvertImg
+    Compose
+from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
+    ChannelDropout
 from skimage import color, morphology, filters
 from skimage import io as img
 

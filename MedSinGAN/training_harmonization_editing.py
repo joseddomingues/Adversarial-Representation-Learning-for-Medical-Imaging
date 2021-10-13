@@ -212,7 +212,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 with torch.no_grad():
                     fake = netG(noise, reals_shapes, noise_amp)
 
-            output = netD(fake.detach())
+            output = netD(fake.detach().clone())
             errD_fake = output.mean()
 
             gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
