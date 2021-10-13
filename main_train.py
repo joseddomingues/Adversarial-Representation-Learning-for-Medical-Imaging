@@ -91,7 +91,7 @@ if __name__ == '__main__':
     current_path = os.path.dirname(os.path.abspath(__file__))
     for py_file in glob.glob(osp.join(current_path, "*.py")):
         copyfile(py_file, osp.join(dir2save, py_file.split("/")[-1]))
-    copytree(osp.join(current_path, "ConSinGAN"), osp.join(dir2save, "ConSinGAN"))
+    copytree(osp.join(current_path, "MedSinGAN"), osp.join(dir2save, "MedSinGAN"))
 
     # train model
     print("Training model ({})".format(dir2save))
