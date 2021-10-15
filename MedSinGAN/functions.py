@@ -377,7 +377,7 @@ def generate_dir2save(opt):
     if opt.train_mode == "harmonization" or opt.train_mode == "editing":
         if opt.fine_tune:
             dir2save += "_{}".format("fine-tune")
-    dir2save += "_train_depth_{}_lr_scale_{}".format(opt.train_depth, opt.lr_scale)
+    dir2save += "_niter_{}_lr_scale_{}_nstages_{}".format(opt.niter, opt.lr_scale, opt.train_stages)
     if opt.batch_norm:
         dir2save += "_BN"
     dir2save += "_act_" + opt.activation
