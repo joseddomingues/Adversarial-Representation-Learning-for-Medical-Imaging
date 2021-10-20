@@ -268,7 +268,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
                      noise_amp, writer, reals, iter, n=16, im_name=""):
     opt.out_ = functions.generate_dir2save(opt)
-    dir2save = '{}_{}/harmonized_samples_stage_{}'.format(opt.out_, im_name, depth)
+    dir2save = '{}/harmonized_samples_stage_{}'.format(opt.out_, depth)
     reals_shapes = [r.shape for r in reals]
     _name = "harmonized" if opt.train_mode == "harmonization" else "edited"
     images = []
@@ -311,8 +311,8 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
                     noise.append(functions.generate_noise([opt.nfc, reals_shapes[d][2], reals_shapes[d][3]],
                                                           device=opt.device).detach())
             sample = netG(noise, reals_shapes, noise_amp)
-            functions.save_image('{}/{}_{}_naive_sample.jpg'.format(dir2save, im_name, idx), augmented_image)
-            functions.save_image('{}/{}_{}_{}_sample.jpg'.format(dir2save, im_name, idx, _name), sample.detach())
+            functions.save_image('{}/{}_naive_sample.jpg'.format(dir2save, idx), augmented_image)
+            functions.save_image('{}/{}_{}_sample.jpg'.format(dir2save, idx, _name), sample.detach())
             augmented_image = imresize_to_shape(augmented_image, sample.shape[2:], opt)
             images.append(augmented_image)
             images.append(sample.detach())
@@ -323,17 +323,17 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
             if os.path.exists(mask_file_name):
                 mask = get_mask(mask_file_name, augmented_image, opt)
                 sample_w_mask = (1 - mask) * augmented_image + mask * sample.detach()
-                functions.save_image('{}/{}_{}_sample_w_mask_{}.jpg'.format(dir2save, _name, im_name, iter), sample_w_mask.detach())
+                functions.save_image('{}/{}_sample_w_mask_{}.jpg'.format(dir2save, _name, iter), sample_w_mask.detach())
                 images = torch.cat([augmented_image, sample.detach(), sample_w_mask], 0)
                 grid = make_grid(images, nrow=3, normalize=True)
-                writer.add_image('{}_{}_images_{}'.format(_name, im_name, depth), grid, iter)
+                writer.add_image('{}_images_{}'.format(_name, depth), grid, iter)
             else:
                 print("Warning: no mask with name {} exists for image {}".format(mask_file_name, opt.input_name))
                 print("Only showing results without mask.")
                 images = torch.cat([augmented_image, sample.detach()], 0)
                 grid = make_grid(images, nrow=2, normalize=True)
-                writer.add_image('{}_{}_images_{}'.format(_name, im_name, depth), grid, iter)
-            functions.save_image('{}/{}_{}_sample_{}.jpg'.format(dir2save, _name, im_name, iter), sample.detach())
+                writer.add_image('{}_images_{}'.format(_name, depth), grid, iter)
+            functions.save_image('{}/{}_sample_{}.jpg'.format(dir2save, _name, iter), sample.detach())
         else:
             if naive_img is not None:
                 noise = []
@@ -353,17 +353,17 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
                 _naive_img = imresize_to_shape(naive_img_large, sample.shape[2:], opt)
                 images.insert(0, sample.detach())
                 images.insert(0, _naive_img)
-                functions.save_image('{}/{}_{}_sample_{}.jpg'.format(dir2save, _name, im_name, iter), sample.detach())
+                functions.save_image('{}/{}_sample_{}.jpg'.format(dir2save, _name, iter), sample.detach())
 
                 mask_file_name = '{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img[-4:])
                 if os.path.exists(mask_file_name):
                     mask = get_mask(mask_file_name, _naive_img, opt)
                     sample_w_mask = (1 - mask) * _naive_img + mask * sample.detach()
-                    functions.save_image('{}/{}_{}_sample_w_mask_{}.jpg'.format(dir2save, _name, im_name, iter), sample_w_mask)
+                    functions.save_image('{}/{}_sample_w_mask_{}.jpg'.format(dir2save, _name, iter), sample_w_mask)
 
             images = torch.cat(images, 0)
             grid = make_grid(images, nrow=4, normalize=True)
-            writer.add_image('{}_{}_images_{}'.format(_name, im_name, depth), grid, iter)
+            writer.add_image('{}_images_{}'.format(_name, depth), grid, iter)
 
 
 def get_mask(mask_file_name, real_img, opt):

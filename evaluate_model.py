@@ -127,7 +127,7 @@ if __name__ == '__main__':
                 mask = imresize_to_shape(mask, [out.shape[2], out.shape[3]], opt)
             mask = functions.dilate_mask(mask, opt)
             out = (1 - mask) * reals[-1] + mask * out
-            functions.save_image('{}/{}_{}_w_mask.jpg'.format(dir2save, _name, opt.naive_img), out.detach())
+            functions.save_image('{}/{}_w_mask.jpg'.format(dir2save, _name), out.detach())
         else:
             print("Warning: mask {} not found.".format(mask_file_name))
             print("Harmonization/Editing only performed without mask.")
