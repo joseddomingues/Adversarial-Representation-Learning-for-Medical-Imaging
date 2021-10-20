@@ -20,7 +20,7 @@ def make_dir(path):
         pass
 
 
-def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50):
+def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50, im_name=""):
     """
 
     @param netG:
@@ -96,15 +96,15 @@ if __name__ == '__main__':
         print("Generating Samples...")
         with torch.no_grad():
             # # generate reconstruction
-            generate_samples(netG, reals_shapes, noise_amp, reconstruct=True)
+            generate_samples(netG, reals_shapes, noise_amp, reconstruct=True, im_name=opt.naive_img)
 
             # generate random samples of normal resolution
             rs0 = generate_samples(netG, reals_shapes, noise_amp, n=opt.num_samples)
 
             # generate random samples of different resolution
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples, im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples, im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples, im_name=opt.naive_img)
 
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         opt.noise_scaling = 0.1
@@ -118,16 +118,16 @@ if __name__ == '__main__':
                                                        fixed_noise[0].shape[3]],
                                                       device=opt.device)
 
-        out = generate_samples(netG, reals_shapes, noise_amp, reconstruct=True)
+        out = generate_samples(netG, reals_shapes, noise_amp, reconstruct=True, im_name=opt.naive_img)
 
-        mask_file_name = '{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img[-4:])
+        mask_file_name = '{}_{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img,opt.naive_img[-4:])
         if os.path.exists(mask_file_name):
             mask = functions.read_image_dir(mask_file_name, opt)
             if mask.shape[3] != out.shape[3]:
                 mask = imresize_to_shape(mask, [out.shape[2], out.shape[3]], opt)
             mask = functions.dilate_mask(mask, opt)
             out = (1 - mask) * reals[-1] + mask * out
-            functions.save_image('{}/{}_w_mask.jpg'.format(dir2save, _name), out.detach())
+            functions.save_image('{}/{}_{}_w_mask.jpg'.format(dir2save, _name, opt.naive_img), out.detach())
         else:
             print("Warning: mask {} not found.".format(mask_file_name))
             print("Harmonization/Editing only performed without mask.")
