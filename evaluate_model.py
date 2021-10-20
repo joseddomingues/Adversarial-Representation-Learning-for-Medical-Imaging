@@ -37,10 +37,10 @@ def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, re
         reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
         if opt.train_mode == "generation" or opt.train_mode == "retarget":
             functions.save_image('{}/reconstruction.jpg'.format(dir2save), reconstruction.detach())
-            functions.save_image('{}/{}_real_image.jpg'.format(dir2save, im_name), reals[-1].detach())
+            functions.save_image('{}/real_image.jpg'.format(dir2save), reals[-1].detach())
         elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
             functions.save_image('{}/{}_wo_mask.jpg'.format(dir2save, _name), reconstruction.detach())
-            functions.save_image('{}/{}_real_image.jpg'.format(dir2save, im_name),
+            functions.save_image('{}/real_image.jpg'.format(dir2save),
                                  imresize_to_shape(real, reals_shapes[-1][2:], opt).detach())
         return reconstruction
 
