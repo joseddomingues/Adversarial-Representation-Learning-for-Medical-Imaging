@@ -79,7 +79,7 @@ if __name__ == '__main__':
         torch.cuda.set_device(opt.gpu)
         opt.device = "cuda:{}".format(opt.gpu)
 
-    dir2save = os.path.join(opt.model_dir, "Evaluation")
+    dir2save = os.path.join(opt.model_dir, "Evaluation_" + opt.naive_img)
     make_dir(dir2save)
 
     print("Loading models...")

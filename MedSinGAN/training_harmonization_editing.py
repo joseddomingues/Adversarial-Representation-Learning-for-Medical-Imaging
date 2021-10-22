@@ -252,10 +252,10 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
             generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-                             noise_amp, writer, reals, iter + 1, im_name=opt.naive_image)
+                             noise_amp, writer, reals, iter + 1)
         elif opt.fine_tune and iter % 100 == 0:
             generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-                             noise_amp, writer, reals, iter + 1, im_name=opt.naive_image)
+                             noise_amp, writer, reals, iter + 1)
 
         schedulerD.step()
         schedulerG.step()
@@ -266,7 +266,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
 
 def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-                     noise_amp, writer, reals, iter, n=16, im_name=""):
+                     noise_amp, writer, reals, iter, n=16):
     opt.out_ = functions.generate_dir2save(opt)
     dir2save = '{}/harmonized_samples_stage_{}'.format(opt.out_, depth)
     reals_shapes = [r.shape for r in reals]
