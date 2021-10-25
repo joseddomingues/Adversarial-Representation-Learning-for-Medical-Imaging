@@ -4,7 +4,12 @@ matplotlib
 numpy
 torch
 torchvision
-albumentations==1.1.0
+tensorboard
+albumentations
 scikit-image
 scipy
 tqdm
+lpips
+piqa
+clean-fid
+opencv-python

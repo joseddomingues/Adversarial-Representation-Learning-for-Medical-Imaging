@@ -1,0 +1,13 @@
+#MS-SSIM
+- https://pypi.org/project/pytorch-msssim/
+- https://github.com/jorge-pessoa/pytorch-msssim
+
+# NIQE & others
+- https://github.com/aizvorski/video-quality
+
+# LPIPS
+- https://pypi.org/project/lpips/
+- https://github.com/S-aiueo32/lpips-pytorch
+
+# SIFID
+- https://pypi.org/project/clean-fid/ (FID)

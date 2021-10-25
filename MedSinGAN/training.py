@@ -37,7 +37,7 @@ def train(opt):
     # Initiate the generator model and add it to cuda
     generator = init_G(opt)
 
-    # Fixed noise and noise ampliation to sue
+    # Fixed noise and noise ampliation to use
     fixed_noise = []
     noise_amp = []
 
