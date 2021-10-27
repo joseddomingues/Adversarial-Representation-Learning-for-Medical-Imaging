@@ -13,3 +13,4 @@ lpips
 piqa
 clean-fid
 opencv-python
+pillow

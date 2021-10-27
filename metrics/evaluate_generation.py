@@ -2,98 +2,125 @@
 import argparse
 import logging
 import os
+import shutil
 
-import cv2
-import lpips
-import torch
+import torchvision.transforms as transforms
+from PIL import Image
 from cleanfid import fid
-from piqa import SSIM, MS_SSIM
+from piqa import SSIM, MS_SSIM, LPIPS
 
-import utils
 
-logging.basicConfig(filename='evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
-# Receive arguments to then evaluate metrics
+def lpips_test(original, generated):
+    """
+    Performs the lpips test on the generated images
+    @param original: Original image
+    @param generated: Generated images
+    @return: Logs the information in the log file
+    """
 
-parser = argparse.ArgumentParser()
+    logging.info('===== LPIPS TESTS =====')
 
-parser.add_argument('--input_image', help='Real image. Ex: images/photo.png', required=True)
-parser.add_argument('--output_folder', help='Complete path folder with images to test', required=True)
+    # Initialize criterion
+    criterion = LPIPS()
 
-opt = parser.parse_args()
-"""
-1. Read output images
-"""
-logging.info(f'Reading output images from {opt.output_folder}')
+    # For each generated image calculate lpips
+    for image in generated.keys():
+        loss = criterion(original, generated[image])
+        logging.info(f'Image: {image}, LPIPS Loss (Alex): {loss}')
 
-output_images = {}
-for im in os.listdir(opt.output_folder):
-    output_images[im] = cv2.imread(opt.output_folder + '/' + im, 0)
-    output_images[im] = utils.convert_to_rgb(output_images[im])
 
-"""
-2. Convert Input Image to RGB if not
-"""
+def ms_ssim_test(original, generated):
+    """
+    Performs MS-SSIM metric in the generated images
+    @param original: Original image
+    @param generated: Generated set of images
+    @return: Logs the scores on the log file
+    """
 
-logging.info(f'Reading original image {opt.input_image}')
+    logging.info('===== MS-SSIM TESTS =====')
 
-gray_rgb = cv2.imread(opt.input_image, 0)
-gray_rgb = utils.convert_to_rgb(gray_rgb)
+    ssim = SSIM()
+    msssim = MS_SSIM()
 
-"""
-3. Runs LPIPS tests
-"""
+    # For each generated image calculate MS-SSIM and SSIM
+    for image in generated.keys():
+        ssim_loss = ssim(original, generated[image])
+        msssim_loss = msssim(original, generated[image])
+        logging.log(f'Image: {image}, SSIM Loss: {ssim_loss}, MS-SSIM Loss: {msssim_loss}')
 
-logging.info('===== LPIPS TESTS =====')
 
-# Losses
-loss_fn_alex = lpips.LPIPS(net='alex')  # best forward scores
-loss_fn_vgg = lpips.LPIPS(net='vgg')  # closer to "traditional" perceptual loss, when used for optimization
+def sifid_test(original_image, generated_folder):
+    """
+    Calculates the SIFID score between the origin folder and the generated one
+    @param original_image: Original image
+    @param generated_folder: Folder with N generated images
+    @return: Logs the score in the log file
+    """
 
-# Normalize images
-gray_rgb_normalized = utils.normalize_rgb_image(gray_rgb)
+    logging.info('===== SIFID TESTS =====')
 
-for im in output_images.keys():
-    break
-    current = utils.normalize_rgb_image(output_images[im])
-    alex_loss = loss_fn_alex(current, gray_rgb_normalized)
-    vgg_loss = loss_fn_vgg(current, gray_rgb_normalized)
-    logging.info(f'Image: {im}, LPIPS(Alex): {alex_loss}, LPIPS(Vgg): {vgg_loss}')
+    # Generate folder with N copies of the original image
+    folder_name = 'original_images_folder'
+    os.mkdir(folder_name)
+    imag = Image.open(original_image)
 
-"""
-4. Run MS-SSIM tests
-"""
+    # Generate folder for original images
+    for i in range(len(os.listdir(generated_folder))):
+        imag.save(folder_name + '/original_' + i)
 
-logging.info('\n\n===== MS-SSIM TESTS =====')
+    # Compute fid's
+    score = fid.compute_fid(folder_name, generated_folder)
+    logging.info(f'Image: {im}, SIFID Loss: {score}')
 
-ssim = SSIM()
-msssim = MS_SSIM()
-gray_rgb_tensor = torch.tensor(utils.normalize_rgb_image_standard(gray_rgb)).reshape(1, 3, gray_rgb.shape[0],
-                                                                                     gray_rgb.shape[1])
+    # Delete temporary folder
+    shutil.rmtree(folder_name)
 
-for im in output_images.keys():
-    break
-    current = torch.tensor(utils.normalize_rgb_image_standard(output_images[im])).reshape(1, 3,
-                                                                                          output_images[im].shape[0],
-                                                                                          output_images[im].shape[1])
-    ssim_loss = ssim(current, gray_rgb_tensor)
-    msssim_loss = msssim(current, gray_rgb_tensor)
-    logging.info(f'Image: {im}, SSIM Loss: {ssim_loss}, MS-SSIM Loss: {msssim_loss}')
 
-"""
-5. Run SIFID tests
-"""
+if __name__ == '__main__':
 
-logging.info('\n\n===== SIFID TESTS =====')
-torch.device
-score = fid.compute_fid(opt.output_folder, opt.output_folder)
-logging.info(f'Image: {im}, SSIM Loss: {ssim_loss}, MS-SSIM Loss: {msssim_loss}')
+    logging.basicConfig(filename='evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
 
-"""
-6. Run NIQE tests
-"""
-for im in output_images.keys():
-    break
-    current = utils.normalize_rgb_image(output_images[im])
-    logging.info(f'Image: {im}, NIQE: {niqe.niqe(curent)}')
+    # Receive arguments to then evaluate metrics
+    parser = argparse.ArgumentParser()
 
-# img = scipy.misc.imread(sys.argv[1], flatten=True).astype(numpy.float)/255.0
+    parser.add_argument('--input_image', help='Real image. Ex: images/photo.png', required=True)
+    parser.add_argument('--output_folder', help='Complete path folder with images to test', required=True)
+
+    opt = parser.parse_args()
+
+    """
+    1. Read output images
+    """
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+
+    logging.info(f'Reading output images from {opt.output_folder}')
+
+    output_images = {}
+    for im in os.listdir(opt.output_folder):
+        output_images[im] = transform(Image.open(opt.output_folder + '/' + im))
+        output_images[im] = output_images[im].reshape(
+            (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
+
+    """
+    2. Convert Input Image to RGB if not
+    """
+    logging.info(f'Reading original image {opt.input_image}')
+    gray_rgb = transform(Image.open(opt.input_image))
+    gray_rgb = gray_rgb.reshape((1, gray_rgb.shape[0], gray_rgb.shape[1], gray_rgb.shape[2]))
+
+    """
+    3. Run LPIPS tests
+    """
+    lpips_test(gray_rgb, output_images)
+
+    """
+    4. Run MS-SSIM tests
+    """
+    ms_ssim_test(gray_rgb, output_images)
+
+    """
+    5. Run SIFID tests
+    """
+    sifid_test(opt.input_image, opt.output_folder)
