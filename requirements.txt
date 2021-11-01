@@ -5,7 +5,7 @@ numpy
 torch
 torchvision
 tensorboard
-albumentations
+albumentations==1.1.0
 scikit-image
 scipy
 tqdm
