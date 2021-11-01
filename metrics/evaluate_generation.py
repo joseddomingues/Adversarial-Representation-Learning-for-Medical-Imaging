@@ -30,9 +30,9 @@ def lpips_test(original, generated):
     for image in generated.keys():
         loss = criterion(original, generated[image])
         average += loss
-        logging.info(f'Image: {image}, LPIPS Loss (Alex): {loss}')
+        logging.info(f'Image: {image}, LPIPS (Alex): {loss}')
 
-    logging.info(f'Average LPIPS Loss: {average / len(generated.keys())}')
+    logging.info(f'Average LPIPS: {average / len(generated.keys())}')
 
 
 def ms_ssim_test(original, generated):
@@ -58,12 +58,12 @@ def ms_ssim_test(original, generated):
         average_ssim += ssim_loss
 
         msssim_loss = msssim(original, generated[image])
-        average_mssim += average_mssim
-        logging.info(f'Image: {image}, SSIM Loss: {ssim_loss}, MS-SSIM Loss: {msssim_loss}')
+        average_mssim += msssim_loss
+        logging.info(f'Image: {image}, SSIM: {ssim_loss}, MS-SSIM: {msssim_loss}')
 
     logging.info(
-        f'Average SSIM Loss: {average_ssim / len(generated.keys())}, '
-        f'Average MS-SSIM Loss: {average_mssim / len(generated.keys())}')
+        f'Average SSIM: {average_ssim / len(generated.keys())}, '
+        f'Average MS-SSIM: {average_mssim / len(generated.keys())}')
 
 
 def sifid_test(original_image, generated_folder):
@@ -83,11 +83,11 @@ def sifid_test(original_image, generated_folder):
 
     # Generate folder for original images
     for i in range(len(os.listdir(generated_folder))):
-        imag.save(folder_name + '/original_' + i + '.jpg')
+        imag.save(folder_name + '/original_' + str(i) + '.jpg')
 
     # Compute fid's
     score = fid.compute_fid(folder_name, generated_folder)
-    logging.info(f'Image: {im}, SIFID Loss: {score}')
+    logging.info(f'Image: {im}, SIFID: {score}')
 
     # Delete temporary folder
     shutil.rmtree(folder_name)
