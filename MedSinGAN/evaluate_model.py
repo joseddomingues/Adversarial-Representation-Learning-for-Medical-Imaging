@@ -2,9 +2,9 @@ import os
 
 import torch
 
-import MedSinGAN.functions as functions
-from MedSinGAN.config import get_arguments
-from MedSinGAN.imresize import imresize_to_shape
+import functions as functions
+from config import get_arguments
+from imresize import imresize_to_shape
 
 
 def make_dir(path):
@@ -102,9 +102,12 @@ if __name__ == '__main__':
             rs0 = generate_samples(netG, reals_shapes, noise_amp, n=opt.num_samples)
 
             # generate random samples of different resolution
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples, im_name=opt.naive_img)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples, im_name=opt.naive_img)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples, im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples,
+                             im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples,
+                             im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples,
+                             im_name=opt.naive_img)
 
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         opt.noise_scaling = 0.1
@@ -120,7 +123,7 @@ if __name__ == '__main__':
 
         out = generate_samples(netG, reals_shapes, noise_amp, reconstruct=True, im_name=opt.naive_img)
 
-        mask_file_name = '{}_{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img,opt.naive_img[-4:])
+        mask_file_name = '{}_{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img, opt.naive_img[-4:])
         if os.path.exists(mask_file_name):
             mask = functions.read_image_dir(mask_file_name, opt)
             if mask.shape[3] != out.shape[3]:

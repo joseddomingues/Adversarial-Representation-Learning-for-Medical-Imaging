@@ -6,8 +6,8 @@ from shutil import copyfile, copytree
 
 import torch
 
-import MedSinGAN.functions as functions
-from MedSinGAN.config import get_arguments
+import functions as functions
+from config import get_arguments
 
 # noinspection PyInterpreter
 if __name__ == '__main__':
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     if opt.train_mode == "generation" or opt.train_mode == "retarget" or opt.train_mode == "animation":
         if opt.train_mode == "animation":
             opt.im_min_size = 20
-        from MedSinGAN.training import *
+        from training import *
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         if opt.fine_tune:
             if opt.model_dir == "":
@@ -70,7 +70,7 @@ if __name__ == '__main__':
             if not os.path.exists(opt.naive_img):
                 print("Image for harmonization/editing not found: {}".format(opt.naive_img))
                 exit()
-        from MedSinGAN.training_harmonization_editing import *
+        from training_harmonization_editing import *
 
     dir2save = functions.generate_dir2save(opt)
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     current_path = os.path.dirname(os.path.abspath(__file__))
     for py_file in glob.glob(osp.join(current_path, "*.py")):
         copyfile(py_file, osp.join(dir2save, py_file.split("/")[-1]))
-    copytree(osp.join(current_path, "MedSinGAN"), osp.join(dir2save, "MedSinGAN"))
+    copytree(osp.join(current_path, ""), osp.join(dir2save, ""))
 
     # train model
     print("Training model ({})".format(dir2save))
