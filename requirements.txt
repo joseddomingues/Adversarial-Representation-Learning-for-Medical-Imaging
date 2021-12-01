@@ -14,3 +14,4 @@ piqa
 clean-fid
 opencv-python
 pillow
+tensorboardX
