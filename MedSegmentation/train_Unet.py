@@ -11,11 +11,11 @@ from torch.autograd import Variable
 from torch.utils.data import Dataset
 
 from data_augment import unet_augment
-from networks import unet
+from networks import unet, R2U_Net
 
 writer = SummaryWriter()
 
-batch_size = 10  # mini-batch size
+batch_size = 1  # mini-batch size
 n_iters = 50000  # total iterations
 learning_rate = 0.01
 train_directory = "train"
@@ -88,7 +88,7 @@ validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
                                                 batch_size=validation_batch_size,
                                                 shuffle=False)
 
-model = unet()
+model = R2U_Net() #unet()
 iteri = 0
 iter_new = 0
 
