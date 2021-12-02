@@ -88,7 +88,7 @@ validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
                                                 batch_size=validation_batch_size,
                                                 shuffle=False)
 
-model = R2U_Net() #unet()
+model = unet() #R2U_Net()
 iteri = 0
 iter_new = 0
 
