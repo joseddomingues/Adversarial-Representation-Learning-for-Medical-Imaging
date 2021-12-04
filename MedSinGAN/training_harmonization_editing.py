@@ -7,9 +7,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-import MedSinGAN.functions as functions
-import MedSinGAN.models as models
-from MedSinGAN.imresize import imresize_to_shape
+import functions as functions
+import models as models
+from imresize import imresize_to_shape
 
 
 def train(opt):

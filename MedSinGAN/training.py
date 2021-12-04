@@ -7,8 +7,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-import MedSinGAN.functions as functions
-import MedSinGAN.models as models
+import functions as functions
+import models as models
 
 
 def train(opt):

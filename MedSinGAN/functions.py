@@ -16,7 +16,7 @@ from albumentations.augmentations.transforms import ChannelShuffle, Cutout, Inve
 from skimage import color, morphology, filters
 from skimage import io as img
 
-from MedSinGAN.imresize import imresize
+from imresize import imresize
 
 
 def denorm(x):
