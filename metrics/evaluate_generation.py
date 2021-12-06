@@ -95,7 +95,7 @@ def sifid_test(original_image, generated_folder):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(filename='evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
+    logging.basicConfig(filename='generation_evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
 
     # Receive arguments to then evaluate metrics
     parser = argparse.ArgumentParser()

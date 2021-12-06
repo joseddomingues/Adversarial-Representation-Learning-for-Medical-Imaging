@@ -20,7 +20,7 @@ def make_dir(path):
         pass
 
 
-def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50, im_name=""):
+def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50):
     """
 
     @param netG:

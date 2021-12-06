@@ -1,4 +1,10 @@
+import argparse
+import logging
+import os
+
 import numpy as np
+import torchvision.transforms as transforms
+from PIL import Image
 from sklearn.metrics import jaccard_score
 
 
@@ -152,26 +158,75 @@ class EvalSegErr(Exception):
         return repr(self.value)
 
 
-def numeric_score(prediction, groundtruth):
-    """Computes scores:
-    FP = False Positives
-    FN = False Negatives
-    TP = True Positives
-    TN = True Negatives
-    return: FP, FN, TP, TN"""
+if __name__ == '__main__':
 
-    FP = np.float(np.sum((prediction == 1) & (groundtruth == 0)))
-    FN = np.float(np.sum((prediction == 0) & (groundtruth == 1)))
-    TP = np.float(np.sum((prediction == 1) & (groundtruth == 1)))
-    TN = np.float(np.sum((prediction == 0) & (groundtruth == 0)))
+    logging.basicConfig(filename='segmentation_evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
 
-    return FP, FN, TP, TN
+    # Receive arguments to then evaluate metrics
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument('--input_folder', help='Real image. Ex: images', required=True)
+    parser.add_argument('--output_folder', help='Complete path folder with images to test', required=True)
 
-def accuracy_score(prediction, groundtruth):
-    """Getting the accuracy of the model"""
+    opt = parser.parse_args()
 
-    FP, FN, TP, TN = numeric_score(prediction, groundtruth)
-    N = FP + FN + TP + TN
-    accuracy = np.divide(TP + TN, N)
-    return accuracy * 100.0
+    """
+    1. Read input/output images
+    """
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+
+    # Input Images
+    logging.info(f'Reading input images from {opt.input_folder}')
+
+    input_images = {}
+    for im in os.listdir(opt.input_folder):
+        input_images[im] = transform(Image.open(opt.input_images + '/' + im))
+        input_images[im] = input_images[im].reshape(
+            (1, input_images[im].shape[0], input_images[im].shape[1], input_images[im].shape[2]))
+
+    # Output Images
+    logging.info(f'Reading output images from {opt.output_folder}')
+
+    output_images = {}
+    for im in os.listdir(opt.output_folder):
+        output_images[im] = transform(Image.open(opt.output_folder + '/' + im))
+        output_images[im] = output_images[im].reshape(
+            (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
+
+    """
+    2. Convert Input Image to RGB if not
+    """
+    # logging.info(f'Reading original image {opt.input_image}')
+    # gray_rgb = transform(Image.open(opt.input_image))
+    # gray_rgb = gray_rgb.reshape((1, gray_rgb.shape[0], gray_rgb.shape[1], gray_rgb.shape[2]))
+
+    """
+    3. Run Pixel Accuracy
+    """
+    avg_pixel_acc = 0
+    for im in input_images.keys():
+        avg_pixel_acc += pixel_accuracy(input_images[im], output_images[im.replace('.png', '_mask.png')])
+    logging.info(f'Average Pixel Accuracy Segmentation: {avg_pixel_acc / len(input_images.keys())}')
+
+    """
+    4. Run Jaccard Index
+    """
+    avg_jaccard_index = 0
+    for im in input_images.keys():
+        avg_jaccard_index += jaccard_index(input_images[im], output_images[im.replace('.png', '_mask.png')])
+    logging.info(f'Average Jaccard Index Segmentation: {avg_jaccard_index / len(input_images.keys())}')
+
+    """
+    5. Run Dice coefficient 
+    """
+    avg_dice_coef = 0
+    for im in input_images.keys():
+        avg_dice_coef += dice_coeff(output_images[im.replace('.png', '_mask.png')], input_images[im])
+    logging.info(f'Average Jaccard Index Segmentation: {avg_dice_coef / len(input_images.keys())}')
+
+    """
+    6. Adds space for posteriours LOGS
+    """
+    logging.info('\n\n\n')
