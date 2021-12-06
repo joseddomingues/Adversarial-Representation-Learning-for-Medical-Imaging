@@ -4,6 +4,13 @@ import cv2
 
 
 def unet_augment(sample, vertical_prob, horizontal_prob):
+    """
+
+    @param sample:
+    @param vertical_prob:
+    @param horizontal_prob:
+    @return:
+    """
     image, masks = sample['image'], sample['masks']
 
     if random.random() < vertical_prob:

@@ -9,27 +9,43 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
+from argparse import ArgumentParser
 
 from data_augment import unet_augment
 from networks import unet, R2U_Net
 
+# Create Summary Writter
 writer = SummaryWriter()
 
-batch_size = 1  # mini-batch size
-n_iters = 50000  # total iterations
-learning_rate = 0.01
-train_directory = "train"
-validation_directory = "validation"
-checkpoints_directory_unet = "checkpoints_unet"
-optimizer_checkpoints_directory_unet = "optimizer_checkpoints_unet"
-graphs_unet_directory = "graphs_unet"
+# Create ArgParser
+arg = ArgumentParser()
+
+arg.add_argument('--n_iters', required=True, help='Number of base iterations', type=int)
+arg.add_argument('--batch_size', required=True, help='Batch Size', type=int)
+arg.add_argument('--l_rate', required=True, help='Learning Rate', type=float)
+arg.add_argument('--train_folder', required=True, help='Train Folder for Segmentation', type=str)
+arg.add_argument('--val_folder', required=True, help='Validation Folder for Segmentation', type=str)
+arg.add_argument('--model_checkpoints', required=True, help='Folder For Model Checkpoints', type=str)
+arg.add_argument('--optimizer_checkpoints', required=True, help='Folder For Model Optimizers', type=str)
+arg.add_argument('--graphs_dir', required=False, help='Folder For Graphs Model', type=str, default='graphs_unet')
+
+opt_map = arg.parse_args()
+
+batch_size = opt_map.batch_size  # mini-batch size
+n_iters = opt_map.n_iters  # total iterations
+learning_rate = opt_map.l_rate
+train_directory = opt_map.train_folder
+validation_directory = opt_map.val_folder
+checkpoints_directory_unet = opt_map.model_checkpoints
+optimizer_checkpoints_directory_unet = opt_map.optimizer_checkpoints
+graphs_unet_directory = opt_map.graphs_dir
 validation_batch_size = 1
 threshold = 128
 
 
 class ImageDataset(Dataset):  # Defining the class to load datasets
     def __init__(self, input_dir='train', transform=None):
-        self.input_dir = os.path.join("data/", input_dir)
+        self.input_dir = input_dir
         self.transform = transform
         self.dirlist = os.listdir(self.input_dir)
         self.dirlist.sort()
@@ -109,7 +125,8 @@ if not os.path.exists(graphs_unet_directory):
 if torch.cuda.is_available():  # use gpu if available
     model.cuda()
 
-criterion = nn.BCELoss()  # Loss Class #BCE Loss has been used here to determine if the pixel belogs to class or not.(This is the case of segmentation of a single class)
+# Loss Class #BCE Loss has been used here to determine if the pixel belogs to class or not.(This is the case of segmentation of a single class)
+criterion = nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # optimizer class
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10,
                                             gamma=0.1)  # this will decrease the learning rate by factor of 0.1 every 10 epochs
