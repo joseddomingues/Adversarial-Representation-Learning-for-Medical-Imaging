@@ -20,16 +20,19 @@ writer = SummaryWriter()
 # Create ArgParser
 arg = ArgumentParser()
 
-arg.add_argument('--n_iters', required=True, help='Number of base iterations', type=int)
-arg.add_argument('--batch_size', required=True, help='Batch Size', type=int)
-arg.add_argument('--l_rate', required=True, help='Learning Rate', type=float)
-arg.add_argument('--train_folder', required=True, help='Train Folder for Segmentation', type=str)
-arg.add_argument('--val_folder', required=True, help='Validation Folder for Segmentation', type=str)
-arg.add_argument('--model_checkpoints', required=True, help='Folder For Model Checkpoints', type=str)
-arg.add_argument('--optimizer_checkpoints', required=True, help='Folder For Model Optimizers', type=str)
-arg.add_argument('--graphs_dir', required=False, help='Folder For Graphs Model', type=str, default='graphs_unet')
+arg.add_argument('--n_iters', help='Number of base iterations', type=int, default=5000)
+arg.add_argument('--batch_size', help='Batch Size', type=int, default=3)
+arg.add_argument('--l_rate', help='Learning Rate', type=float, default=0.01)
+arg.add_argument('--train_folder', help='Train Folder for Segmentation', type=str, default='train')
+arg.add_argument('--val_folder', help='Validation Folder for Segmentation', type=str, default='validation')
+arg.add_argument('--model_checkpoints', help='Folder For Model Checkpoints', type=str, default='model_checkpoints')
+arg.add_argument('--optimizer_checkpoints', help='Folder For Model Optimizers', type=str, default='model_optimizers')
+arg.add_argument('--graphs_dir', help='Folder For Graphs Model', type=str, default='graphs_unet')
 
 opt_map = arg.parse_args()
+
+print(opt_map)
+exit(-1)
 
 batch_size = opt_map.batch_size  # mini-batch size
 n_iters = opt_map.n_iters  # total iterations

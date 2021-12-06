@@ -10,7 +10,7 @@ arg = ArgumentParser()
 
 arg.add_argument('--model_dir', required=True, help='Checkpoints Model Directory Path')
 arg.add_argument('--test_images', required=True, help='Test Images Directory Path')
-arg.add_argument('--output_folder', required=True, help='Output Folder To Save Segmentation Masks')
+arg.add_argument('--output_folder', help='Output Folder To Save Segmentation Masks', default='results')
 
 opt_map = arg.parse_args()
 
