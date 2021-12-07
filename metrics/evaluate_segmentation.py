@@ -5,41 +5,92 @@ import os
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
-from sklearn.metrics import jaccard_score
+from keras import backend as K
 
 
-def dice_coeff(im1, im2, empty_score=1.0):
-    """Calculates the dice coefficient for the images"""
-
-    im1 = np.asarray(im1).astype(np.bool)
-    im2 = np.asarray(im2).astype(np.bool)
-
-    if im1.shape != im2.shape:
-        raise ValueError("Shape mismatch: im1 and im2 must have the same shape.")
-
-    im1 = im1 > 0.5
-    im2 = im2 > 0.5
-
-    im_sum = im1.sum() + im2.sum()
-    if im_sum == 0:
-        return empty_score
-
-    # Compute Dice coefficient
-    intersection = np.logical_and(im1, im2)
-    # print(im_sum)
-
-    return 2. * intersection.sum() / im_sum
-
-
-def jaccard_index(true, pred):
-    """
-    Performs jaccard index using jaccard score from scikit learn
-    @param true: The true ground truth value
-    @param pred: The predicted value
-    @return: The Jaccard score between the two images
+def extract_both_masks(eval_segm, gt_segm, cl, n_cl):
     """
 
-    return jaccard_score(true.flatten(), pred.flatten())
+    @param eval_segm:
+    @param gt_segm:
+    @param cl:
+    @param n_cl:
+    @return:
+    """
+    eval_mask = extract_masks(eval_segm, cl, n_cl)
+    gt_mask = extract_masks(gt_segm, cl, n_cl)
+
+    return eval_mask, gt_mask
+
+
+def extract_classes(segm):
+    """
+
+    @param segm:
+    @return:
+    """
+    cl = np.unique(segm)
+    n_cl = len(cl)
+
+    return cl, n_cl
+
+
+def segm_size(segm):
+    """
+
+    @param segm:
+    @return:
+    """
+    try:
+        height = segm.shape[0]
+        width = segm.shape[1]
+    except IndexError:
+        raise
+
+    return height, width
+
+
+def extract_masks(segm, cl, n_cl):
+    """
+
+    @param segm:
+    @param cl:
+    @param n_cl:
+    @return:
+    """
+    h, w = segm_size(segm)
+    masks = np.zeros((n_cl, h, w))
+
+    for i, c in enumerate(cl):
+        masks[i, :, :] = segm == c
+
+    return masks
+
+
+class EvalSegErr(Exception):
+    """
+
+    """
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+
+def check_size(eval_segm, gt_segm):
+    """
+
+    @param eval_segm:
+    @param gt_segm:
+    @return:
+    """
+    h_e, w_e = segm_size(eval_segm)
+    h_g, w_g = segm_size(gt_segm)
+
+    if (h_e != h_g) or (w_e != w_g):
+        raise EvalSegErr("DiffDim: Different dimensions of matrices!")
 
 
 def pixel_accuracy(eval_segm, gt_segm):
@@ -73,89 +124,34 @@ def pixel_accuracy(eval_segm, gt_segm):
     return pixel_accuracy_
 
 
-def extract_both_masks(eval_segm, gt_segm, cl, n_cl):
+def dice_coeff(y_true, y_pred, smooth=1):
+    """
+    Calculates the dice coefficient for the images
+    @param y_true: The ground truth mask
+    @param y_pred: The predicted mask
+    @param smooth:
+    @return: The Dice Coefficient value
     """
 
-    @param eval_segm:
-    @param gt_segm:
-    @param cl:
-    @param n_cl:
-    @return:
+    intersection = K.sum(y_true * y_pred, axis=[1, 2, 3])
+    union = K.sum(y_true, axis=[1, 2, 3]) + K.sum(y_pred, axis=[1, 2, 3])
+    dice = K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
+    return dice
+
+
+def jaccard_index(y_true, y_pred, smooth=1):
     """
-    eval_mask = extract_masks(eval_segm, cl, n_cl)
-    gt_mask = extract_masks(gt_segm, cl, n_cl)
-
-    return eval_mask, gt_mask
-
-
-def extract_classes(segm):
-    """
-
-    @param segm:
-    @return:
-    """
-    cl = np.unique(segm)
-    n_cl = len(cl)
-
-    return cl, n_cl
-
-
-def extract_masks(segm, cl, n_cl):
+    Performs jaccard index using jaccard score from scikit learn
+    @param smooth:
+    @param y_true: The true ground truth value
+    @param y_pred: The predicted value
+    @return: The Jaccard score between the two images
     """
 
-    @param segm:
-    @param cl:
-    @param n_cl:
-    @return:
-    """
-    h, w = segm_size(segm)
-    masks = np.zeros((n_cl, h, w))
-
-    for i, c in enumerate(cl):
-        masks[i, :, :] = segm == c
-
-    return masks
-
-
-def segm_size(segm):
-    """
-
-    @param segm:
-    @return:
-    """
-    try:
-        height = segm.shape[0]
-        width = segm.shape[1]
-    except IndexError:
-        raise
-
-    return height, width
-
-
-def check_size(eval_segm, gt_segm):
-    """
-
-    @param eval_segm:
-    @param gt_segm:
-    @return:
-    """
-    h_e, w_e = segm_size(eval_segm)
-    h_g, w_g = segm_size(gt_segm)
-
-    if (h_e != h_g) or (w_e != w_g):
-        raise EvalSegErr("DiffDim: Different dimensions of matrices!")
-
-
-class EvalSegErr(Exception):
-    """
-
-    """
-
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
+    intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
+    union = K.sum(y_true, [1, 2, 3]) + K.sum(y_pred, [1, 2, 3]) - intersection
+    iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
+    return iou
 
 
 if __name__ == '__main__':
