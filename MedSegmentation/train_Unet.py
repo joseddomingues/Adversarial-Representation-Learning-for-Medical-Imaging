@@ -108,7 +108,7 @@ validation_dataset = ImageDataset(input_dir=validation_directory, transform=True
 
 num_epochs = n_iters / (len(train_dataset) / batch_size)
 num_epochs = int(num_epochs)
-log_param("Num Epochs (Used)", n_iters)
+log_param("Num Epochs", num_epochs)
 
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=batch_size,
@@ -158,7 +158,7 @@ elif not os.path.exists(optimizer_checkpoints_directory_unet):
 beg = time.time()  # time at the beginning of training
 print("Training Started!")
 
-with start_run():
+with start_run(nested=True):
     for epoch in range(num_epochs):
         print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
         for i, datapoint in enumerate(train_loader):
@@ -222,14 +222,14 @@ with start_run():
         scheduler.step()
     writer.close()
 
-    # Save model to mlflow
-    tracking_url_type_store = urlparse(get_tracking_uri()).scheme
-    if tracking_url_type_store != "file":
-
-        # Register the model
-        # There are other ways to use the Model Registry, which depends on the use case,
-        # please refer to the doc for more information:
-        # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-        log_model(model, "model", registered_model_name="UNet_Segmentation_Model")
-    else:
-        log_model(model, "model", registered_model_name="UNet_Segmentation_Model_1")
+    # # Save model to mlflow
+    # tracking_url_type_store = urlparse(get_tracking_uri()).scheme
+    # if tracking_url_type_store != "file":
+    #
+    #     # Register the model
+    #     # There are other ways to use the Model Registry, which depends on the use case,
+    #     # please refer to the doc for more information:
+    #     # https://mlflow.org/docs/latest/model-registry.html#api-workflow
+    #     log_model(model, "model", registered_model_name="UNet_Segmentation_Model")
+    # else:
+    #     log_model(model, "model", registered_model_name="UNet_Segmentation_Model_1")
