@@ -1,12 +1,13 @@
 import copy
 import datetime
-import dateutil.tz
-import imageio
 import math
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import random
+
+import dateutil.tz
+import imageio
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 from albumentations import HueSaturationValue, IAAAdditiveGaussianNoise, GaussNoise, OneOf, \
@@ -172,7 +173,6 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     @return:
     """
 
-    # TODO: Is this necessary? Delete?
     MSGGan = False
     if MSGGan:
         alpha = torch.rand(1, 1)
@@ -210,8 +210,6 @@ def read_image(opt):
     @param opt:
     @return:
     """
-
-    # TODO: Why not just read with torch vision???
     x = img.imread('%s' % opt.input_name)
     x = np2torch(x, opt)
     x = x[:, 0:3, :, :]

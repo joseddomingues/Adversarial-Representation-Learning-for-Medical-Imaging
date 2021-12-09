@@ -58,7 +58,6 @@ def train(opt):
 
         # Initiates the discriminator.
         # If the scale is bigger than 0 => Load the previous discriminator and init next stage
-        # TODO: This could've been done with only one GenD outside the loop? And then if >0 just init (No need to load)
         d_curr = init_D(opt)
         if scale_num > 0:
             d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
@@ -238,7 +237,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         errG = -output.mean()
 
         # having alpha != 0 then generate new output from noise and calculate MSE
-        # TODO: Why MSE while previously was RMSE
         if alpha != 0:
             loss = nn.MSELoss()
             rec = netG(fixed_noise, reals_shapes, noise_amp)

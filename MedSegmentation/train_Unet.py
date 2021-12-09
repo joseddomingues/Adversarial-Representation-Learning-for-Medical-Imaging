@@ -2,6 +2,7 @@ import glob
 import os
 import re
 import time
+from argparse import ArgumentParser
 
 import cv2
 import torch
@@ -9,10 +10,9 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
-from argparse import ArgumentParser
 
 from data_augment import unet_augment
-from networks import unet, R2U_Net
+from networks import unet
 
 # Create Summary Writter
 writer = SummaryWriter()
@@ -104,7 +104,7 @@ validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
                                                 batch_size=validation_batch_size,
                                                 shuffle=False)
 
-model = unet() #R2U_Net()
+model = unet()  # R2U_Net()
 iteri = 0
 iter_new = 0
 
@@ -166,7 +166,7 @@ for epoch in range(num_epochs):
         writer.add_scalar('Training Loss', loss.item(), iteri)
         iteri = iteri + 1
         if iteri % 10 == 0 or iteri == 1:
-            # Calculate Accuracy         
+            # Calculate Accuracy
             validation_loss = 0
             total = 0
             # Iterate through validation dataset

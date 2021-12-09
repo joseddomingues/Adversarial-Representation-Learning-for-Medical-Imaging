@@ -13,7 +13,6 @@ def denorm(x):
     """
 
     out = (x + 1) / 2
-    # TODO: Does the same as Sigmoid for example? Difference?
     return out.clamp(0, 1)
 
 
