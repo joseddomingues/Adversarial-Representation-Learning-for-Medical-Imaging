@@ -17,3 +17,4 @@ pillow~=8.4.0
 tensorboardX~=2.2
 keras
 pytorch-lightning
+mlflow

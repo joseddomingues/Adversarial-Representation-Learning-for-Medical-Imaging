@@ -3,10 +3,13 @@ import os
 import re
 import time
 from argparse import ArgumentParser
+from urllib.parse import urlparse
 
 import cv2
 import torch
 import torch.nn as nn
+from mlflow import log_param, log_metric, start_run, get_tracking_uri
+from mlflow.pytorch import log_model
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
@@ -31,6 +34,7 @@ arg.add_argument('--graphs_dir', help='Folder For Graphs Model', type=str, defau
 
 opt_map = arg.parse_args()
 
+# Assing parameters
 batch_size = opt_map.batch_size  # mini-batch size
 n_iters = opt_map.n_iters  # total iterations
 learning_rate = opt_map.l_rate
@@ -40,10 +44,19 @@ checkpoints_directory_unet = opt_map.model_checkpoints
 optimizer_checkpoints_directory_unet = opt_map.optimizer_checkpoints
 graphs_unet_directory = opt_map.graphs_dir
 validation_batch_size = 1
-threshold = 128
+
+# Log parameters to mlflow
+log_param("N Iterations", n_iters)
+log_param("Learning Rate", learning_rate)
+log_param("Training Batch Size", batch_size)
+log_param("Validation Batch Size", validation_batch_size)
 
 
-class ImageDataset(Dataset):  # Defining the class to load datasets
+class ImageDataset(Dataset):
+    """
+    Defining the class to load datasets
+    """
+
     def __init__(self, input_dir='train', transform=None):
         self.input_dir = input_dir
         self.transform = transform
@@ -95,6 +108,7 @@ validation_dataset = ImageDataset(input_dir=validation_directory, transform=True
 
 num_epochs = n_iters / (len(train_dataset) / batch_size)
 num_epochs = int(num_epochs)
+log_param("Num Epochs (Used)", n_iters)
 
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=batch_size,
@@ -143,61 +157,79 @@ elif not os.path.exists(optimizer_checkpoints_directory_unet):
 
 beg = time.time()  # time at the beginning of training
 print("Training Started!")
-for epoch in range(num_epochs):
-    print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
-    for i, datapoint in enumerate(train_loader):
-        datapoint['image'] = datapoint['image'].type(
-            torch.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
-        datapoint['masks'] = datapoint['masks'].type(torch.FloatTensor)
 
-        if torch.cuda.is_available():  # move to gpu if available
-            image = Variable(datapoint['image'].cuda())  # Converting a Torch Tensor to Autograd Variable
-            masks = Variable(datapoint['masks'].cuda())
+with start_run():
+    for epoch in range(num_epochs):
+        print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
+        for i, datapoint in enumerate(train_loader):
+            datapoint['image'] = datapoint['image'].type(
+                torch.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
+            datapoint['masks'] = datapoint['masks'].type(torch.FloatTensor)
 
-        else:
-            image = Variable(datapoint['image'])
-            masks = Variable(datapoint['masks'])
+            if torch.cuda.is_available():  # move to gpu if available
+                image = Variable(datapoint['image'].cuda())  # Converting a Torch Tensor to Autograd Variable
+                masks = Variable(datapoint['masks'].cuda())
 
-        optimizer.zero_grad()  # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
-        outputs = model(image)
-        loss = criterion(outputs, masks)
-        loss.backward()  # Backprop
-        optimizer.step()  # Weight update
-        writer.add_scalar('Training Loss', loss.item(), iteri)
-        iteri = iteri + 1
-        if iteri % 10 == 0 or iteri == 1:
-            # Calculate Accuracy
-            validation_loss = 0
-            total = 0
-            # Iterate through validation dataset
-            for j, datapoint_1 in enumerate(validation_loader):  # for validation
-                datapoint_1['image'] = datapoint_1['image'].type(torch.FloatTensor)
-                datapoint_1['masks'] = datapoint_1['masks'].type(torch.FloatTensor)
+            else:
+                image = Variable(datapoint['image'])
+                masks = Variable(datapoint['masks'])
 
-                if torch.cuda.is_available():
-                    input_image_1 = Variable(datapoint_1['image'].cuda())
-                    output_image_1 = Variable(datapoint_1['masks'].cuda())
+            optimizer.zero_grad()  # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
+            outputs = model(image)
+            loss = criterion(outputs, masks)
+            loss.backward()  # Backprop
+            optimizer.step()  # Weight update
+            writer.add_scalar('Training Loss', loss.item(), iteri)
+            log_metric("Training Loss", loss.item())
+            iteri = iteri + 1
+            if iteri % 10 == 0 or iteri == 1:
+                # Calculate Accuracy
+                validation_loss = 0
+                total = 0
+                # Iterate through validation dataset
+                for j, datapoint_1 in enumerate(validation_loader):  # for validation
+                    datapoint_1['image'] = datapoint_1['image'].type(torch.FloatTensor)
+                    datapoint_1['masks'] = datapoint_1['masks'].type(torch.FloatTensor)
 
-                else:
-                    input_image_1 = Variable(datapoint_1['image'])
-                    output_image_1 = Variable(datapoint_1['masks'])
+                    if torch.cuda.is_available():
+                        input_image_1 = Variable(datapoint_1['image'].cuda())
+                        output_image_1 = Variable(datapoint_1['masks'].cuda())
 
-                # Forward pass only to get logits/output
-                outputs_1 = model(input_image_1)
-                validation_loss += criterion(outputs_1, output_image_1).item()
-                total += datapoint_1['masks'].size(0)
-            validation_loss = validation_loss
-            writer.add_scalar('Validation Loss', validation_loss, iteri)
-            # Print Loss
-            time_since_beg = (time.time() - beg) / 60
-            print('Iteration: {}. Loss: {}. Validation Loss: {}. Time(mins) {}'.format(iteri, loss.item(),
-                                                                                       validation_loss, time_since_beg))
-        if iteri % 500 == 0:
-            torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-            torch.save(optimizer.state_dict(),
-                       optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-            print("model and optimizer saved at iteration : " + str(iteri))
-            writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
-                iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
-    scheduler.step()
-writer.close()
+                    else:
+                        input_image_1 = Variable(datapoint_1['image'])
+                        output_image_1 = Variable(datapoint_1['masks'])
+
+                    # Forward pass only to get logits/output
+                    outputs_1 = model(input_image_1)
+                    validation_loss += criterion(outputs_1, output_image_1).item()
+                    total += datapoint_1['masks'].size(0)
+                validation_loss = validation_loss
+                log_metric("Validation Loss", validation_loss)
+                writer.add_scalar('Validation Loss', validation_loss, iteri)
+                # Print Loss
+                time_since_beg = (time.time() - beg) / 60
+                print('Iteration: {}. Loss: {}. Validation Loss: {}. Time(mins) {}'.format(iteri, loss.item(),
+                                                                                           validation_loss,
+                                                                                           time_since_beg))
+            if iteri % 500 == 0:
+                # Save checkpoints locally
+                torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+                torch.save(optimizer.state_dict(),
+                           optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+                print("model and optimizer saved at iteration : " + str(iteri))
+                writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
+                    iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
+        scheduler.step()
+    writer.close()
+
+    # Save model to mlflow
+    tracking_url_type_store = urlparse(get_tracking_uri()).scheme
+    if tracking_url_type_store != "file":
+
+        # Register the model
+        # There are other ways to use the Model Registry, which depends on the use case,
+        # please refer to the doc for more information:
+        # https://mlflow.org/docs/latest/model-registry.html#api-workflow
+        log_model(model, "model", registered_model_name="UNet_Segmentation_Model")
+    else:
+        log_model(model, "model", registered_model_name="UNet_Segmentation_Model_1")
