@@ -16,3 +16,4 @@ opencv-python~=4.5.4.60
 pillow~=8.4.0
 tensorboardX~=2.2
 keras
+pytorch-lightning

@@ -31,9 +31,6 @@ arg.add_argument('--graphs_dir', help='Folder For Graphs Model', type=str, defau
 
 opt_map = arg.parse_args()
 
-print(opt_map)
-exit(-1)
-
 batch_size = opt_map.batch_size  # mini-batch size
 n_iters = opt_map.n_iters  # total iterations
 learning_rate = opt_map.l_rate
