@@ -52,7 +52,7 @@ class GenerationEvaluator:
             loss = criterion(self.original_image, self.generated_images[image])
             average += loss
 
-        return average / len(self.generated_images.keys())
+        return (average / len(self.generated_images.keys())).item()
 
     def run_mssim(self):
         """
@@ -75,7 +75,8 @@ class GenerationEvaluator:
             msssim_loss = msssim(self.original_image, self.generated_images[image])
             average_mssim += msssim_loss
 
-        return average_ssim / len(self.generated_images.keys()), average_mssim / len(self.generated_images.keys())
+        return (average_ssim / len(self.generated_images.keys())).item(), \
+               (average_mssim / len(self.generated_images.keys())).item()
 
     def run_fid(self):
         """

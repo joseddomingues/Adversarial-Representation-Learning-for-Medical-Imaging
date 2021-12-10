@@ -278,7 +278,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             # Log metrics
             log_metric('Discriminator Train Loss Real', -errD_real.item())
             log_metric('Discriminator Train Loss Fake', errD_fake.item())
-            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty)
+            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item())
             log_metric('Generator Train Loss', errG.item())
             log_metric('Generator Train Loss Reconstruction', rec_loss.item())
 
@@ -287,16 +287,16 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
             generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1)
 
-        if iter + 1 == opt.niter:
-            evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
-            log_metric('FID', evaluator.run_fid())
-            log_metric('LPIPS', evaluator.run_lpips())
-            ssim, ms_ssim = evaluator.run_mssim()
-            log_metric('SSIM', ssim)
-            log_metric('MS-SSIM', ms_ssim)
-
         schedulerD.step()
         schedulerG.step()
+
+    if depth + 1 == len(reals):
+        evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
+        log_metric('FID', evaluator.run_fid())
+        log_metric('LPIPS', evaluator.run_lpips())
+        ssim, ms_ssim = evaluator.run_mssim()
+        log_metric('SSIM', ssim)
+        log_metric('MS-SSIM', ms_ssim)
         # break
 
     # saves the networks
