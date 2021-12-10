@@ -13,7 +13,7 @@ from torch.autograd import Variable
 from torch.utils.data import Dataset
 
 from data_augment import unet_augment
-from metrics import jaccard_index, dice_coeff, pixel_accuracy
+from metrics import jaccard_index, dice_coeff
 from networks import unet
 
 # Create Summary Writter
@@ -179,9 +179,8 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
             loss = criterion(outputs, masks)
 
             # Log train metrics
-            log_param("Dice Coeff Train", dice_coeff(y_true=masks, y_pred=outputs))
-            log_param("Pixel Acc Train", pixel_accuracy(gt_segm=masks, eval_segm=outputs))
-            log_param("Jaccard Index Train", jaccard_index(y_true=masks, y_pred=outputs))
+            log_metric("Dice Coeff Train", dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()))
+            log_metric("Jaccard Index Train", jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()))
 
             loss.backward()  # Backprop
             optimizer.step()  # Weight update
@@ -210,9 +209,10 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
                     validation_loss += criterion(outputs_1, output_image_1).item()
 
                     # Log validation metrics
-                    log_param("Dice Coeff Validation", dice_coeff(y_true=output_image_1, y_pred=outputs_1))
-                    log_param("Pixel Acc Validation", pixel_accuracy(gt_segm=output_image_1, eval_segm=outputs_1))
-                    log_param("Jaccard Index Validation", jaccard_index(y_true=output_image_1, y_pred=outputs_1))
+                    log_metric("Dice Coeff Validation",
+                               dice_coeff(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()))
+                    log_metric("Jaccard Index Validation",
+                               jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()))
 
                     total += datapoint_1['masks'].size(0)
                 validation_loss = validation_loss
