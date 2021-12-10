@@ -20,5 +20,5 @@ for base_folder in folds_root:
         print('No DS in the list')
     for image in folds:
         if 'harmonized' in image:
-            shutil.move(input_folder + "/" + base_folder + '/' + image, 
-            new_folder_name + '/' + base_folder + '_' + image)
+            shutil.move(input_folder + "/" + base_folder + '/' + image,
+                        new_folder_name + '/' + base_folder + '_' + image)

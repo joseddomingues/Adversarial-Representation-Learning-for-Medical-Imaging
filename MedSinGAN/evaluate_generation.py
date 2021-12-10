@@ -1,6 +1,4 @@
 # Imports
-import argparse
-import logging
 import os
 import shutil
 
@@ -10,139 +8,94 @@ from cleanfid import fid
 from piqa import SSIM, MS_SSIM, LPIPS
 
 
-def lpips_test(original, generated):
-    """
-    Performs the lpips test on the generated images
-    @param original: Original image
-    @param generated: Generated images
-    @return: Logs the information in the log file
-    """
+class GenerationEvaluator:
+    def __init__(self, input_image, generated):
+        self.original_image = input_image
+        self.generated_images = generated
 
-    logging.info('===== LPIPS TESTS =====')
+        # Required for FID
+        self.base_image = input_image
+        self.output_folder = generated
 
-    # Initialize criterion
-    criterion = LPIPS()
+        # 1. Read output images
+        transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
 
-    # Calculate average
-    average = 0
+        output_images = {}
+        for im in os.listdir(self.generated_images):
+            output_images[im] = transform(Image.open(self.generated_images + '/' + im))
+            output_images[im] = output_images[im].reshape(
+                (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
 
-    # For each generated image calculate lpips
-    for image in generated.keys():
-        loss = criterion(original, generated[image])
-        average += loss
-        logging.info(f'Image: {image}, LPIPS (Alex): {loss}')
+        self.generated_images = output_images
 
-    logging.info(f'Average LPIPS: {average / len(generated.keys())}')
+        # 2. Convert Input Image to RGB if not
+        self.original_image = transform(Image.open(self.original_image))
+        self.original_image = self.original_image.reshape(
+            (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
 
+    def run_lpips(self):
+        """
+        Run LPIPS test for the generation
+        @return: The average LPIPS value for all generated images
+        """
 
-def ms_ssim_test(original, generated):
-    """
-    Performs MS-SSIM metric in the generated images
-    @param original: Original image
-    @param generated: Generated set of images
-    @return: Logs the scores on the log file
-    """
+        # Initialize criterion
+        criterion = LPIPS()
 
-    logging.info('===== MS-SSIM TESTS =====')
+        # Calculate average
+        average = 0
 
-    ssim = SSIM()
-    msssim = MS_SSIM()
+        # For each generated image calculate lpips
+        for image in self.generated_images.keys():
+            loss = criterion(self.original_image, self.generated_images[image])
+            average += loss
 
-    # Calculate average
-    average_ssim = 0
-    average_mssim = 0
+        return average / len(self.generated_images.keys())
 
-    # For each generated image calculate MS-SSIM and SSIM
-    for image in generated.keys():
-        ssim_loss = ssim(original, generated[image])
-        average_ssim += ssim_loss
+    def run_mssim(self):
+        """
+        Run SSIM and MS-SSIM test for the generation
+        @return: SSIM, MS-SSIM
+        """
 
-        msssim_loss = msssim(original, generated[image])
-        average_mssim += msssim_loss
-        logging.info(f'Image: {image}, SSIM: {ssim_loss}, MS-SSIM: {msssim_loss}')
+        ssim = SSIM()
+        msssim = MS_SSIM()
 
-    logging.info(
-        f'Average SSIM: {average_ssim / len(generated.keys())}, '
-        f'Average MS-SSIM: {average_mssim / len(generated.keys())}')
+        # Calculate average
+        average_ssim = 0
+        average_mssim = 0
 
+        # For each generated image calculate MS-SSIM and SSIM
+        for image in self.generated_images.keys():
+            ssim_loss = ssim(self.original_image, self.generated_images[image])
+            average_ssim += ssim_loss
 
-def sifid_test(original_image, generated_folder):
-    """
-    Calculates the SIFID score between the origin folder and the generated one
-    @param original_image: Original image
-    @param generated_folder: Folder with N generated images
-    @return: Logs the score in the log file
-    """
+            msssim_loss = msssim(self.original_image, self.generated_images[image])
+            average_mssim += msssim_loss
 
-    logging.info('===== SIFID TESTS =====')
+        return average_ssim / len(self.generated_images.keys()), average_mssim / len(self.generated_images.keys())
 
-    # Generate folder with N copies of the original image
-    folder_name = 'original_images_folder'
-    os.mkdir(folder_name)
-    imag = Image.open(original_image)
+    def run_fid(self):
+        """
+        Run the FID test for the generated images
+        @return: FID value
+        """
 
-    # Generate folder for original images
-    for i in range(len(os.listdir(generated_folder))):
-        imag.save(folder_name + '/original_' + str(i) + '.jpg')
+        # Generate folder with N copies of the original image
+        folder_name = 'original_images_folder'
+        os.mkdir(folder_name)
+        imag = Image.open(self.base_image)
 
-    # Compute fid's
-    score = fid.compute_fid(folder_name, generated_folder)
-    logging.info(f'Image: {im}, SIFID: {score}')
+        # Generate folder for original images
+        for i in range(len(os.listdir(self.output_folder))):
+            imag.save(folder_name + '/original_' + str(i) + '.jpg')
 
-    # Delete temporary folder
-    shutil.rmtree(folder_name)
+        # Compute fid's
+        score = fid.compute_fid(folder_name, self.output_folder)
 
+        # Delete temporary folder
+        shutil.rmtree(folder_name)
 
-if __name__ == '__main__':
-
-    logging.basicConfig(filename='generation_evaluation.log', filemode='a', level=logging.INFO, format='%(message)s')
-
-    # Receive arguments to then evaluate metrics
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--input_image', help='Real image. Ex: images/photo.png', required=True)
-    parser.add_argument('--output_folder', help='Complete path folder with images to test', required=True)
-
-    opt = parser.parse_args()
-
-    """
-    1. Read output images
-    """
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
-
-    logging.info(f'Reading output images from {opt.output_folder}')
-
-    output_images = {}
-    for im in os.listdir(opt.output_folder):
-        output_images[im] = transform(Image.open(opt.output_folder + '/' + im))
-        output_images[im] = output_images[im].reshape(
-            (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
-
-    """
-    2. Convert Input Image to RGB if not
-    """
-    logging.info(f'Reading original image {opt.input_image}')
-    gray_rgb = transform(Image.open(opt.input_image))
-    gray_rgb = gray_rgb.reshape((1, gray_rgb.shape[0], gray_rgb.shape[1], gray_rgb.shape[2]))
-
-    """
-    3. Run LPIPS tests
-    """
-    lpips_test(gray_rgb, output_images)
-
-    """
-    4. Run MS-SSIM tests
-    """
-    ms_ssim_test(gray_rgb, output_images)
-
-    """
-    5. Run SIFID tests
-    """
-    sifid_test(opt.input_image, opt.output_folder)
-
-    """
-    6. Adds space for posteriours LOGS
-    """
-    logging.info('\n\n\n')
+        return score

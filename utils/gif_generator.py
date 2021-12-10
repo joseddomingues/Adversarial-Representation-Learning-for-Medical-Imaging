@@ -1,6 +1,7 @@
-import imageio
 import argparse
 import os
+
+import imageio
 
 if __name__ == '__main__':
 

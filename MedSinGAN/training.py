@@ -3,12 +3,14 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from mlflow import log_param, log_metric, start_run
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
 import functions as functions
 import models as models
+from evaluate_generation import GenerationEvaluator
 
 
 def train(opt):
@@ -18,67 +20,77 @@ def train(opt):
     @return: Nothing
     """
 
-    print("Training model with the following parameters:")
-    print("\t number of stages: {}".format(opt.train_stages))
-    print("\t number of concurrently trained stages: {}".format(opt.train_depth))
-    print("\t learning rate scaling: {}".format(opt.lr_scale))
-    print("\t non-linearity: {}".format(opt.activation))
+    with start_run(nested=True, run_name=opt.experiment_name):
 
-    # Reads the image
-    real = functions.read_image(opt)
+        # Log parameters to mlflow
+        log_param("N Iterations", opt.niter)
+        log_param("Learning Scale Rate", opt.lr_scale)
+        log_param("N Training Stages", opt.train_stages)
+        log_param("Train Depth", opt.train_depth)
+        log_param("Activation Function", opt.activation)
 
-    # Adjusts the scales of the image
-    real = functions.adjust_scales2image(real, opt)
+        print("Training model with the following parameters:")
+        print("\t number of stages: {}".format(opt.train_stages))
+        print("\t number of concurrently trained stages: {}".format(opt.train_depth))
+        print("\t learning rate scaling: {}".format(opt.lr_scale))
+        print("\t non-linearity: {}".format(opt.activation))
 
-    # Create the scales reals pyramids
-    reals = functions.create_reals_pyramid(real, opt)
-    print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
+        # Reads the image
+        real = functions.read_image(opt)
 
-    # Initiate the generator model and add it to cuda
-    generator = init_G(opt)
+        # Adjusts the scales of the image
+        real = functions.adjust_scales2image(real, opt)
 
-    # Fixed noise and noise ampliation to use
-    fixed_noise = []
-    noise_amp = []
+        # Create the scales reals pyramids
+        reals = functions.create_reals_pyramid(real, opt)
+        print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
 
-    # For each scale of the number os scales will be used
-    # stop_scale - Defined according to adjusting image scales
-    for scale_num in range(opt.stop_scale + 1):
+        # Initiate the generator model and add it to cuda
+        generator = init_G(opt)
 
-        # Generates the directory to save the outputs and file. Also saves the real image for that scale
-        opt.out_ = functions.generate_dir2save(opt)
-        opt.outf = '%s/%d' % (opt.out_, scale_num)
-        try:
-            os.makedirs(opt.outf)
-        except OSError:
-            print(OSError)
-            pass
+        # Fixed noise and noise ampliation to use
+        fixed_noise = []
+        noise_amp = []
 
-        functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
+        # For each scale of the number os scales will be used
+        # stop_scale - Defined according to adjusting image scales
+        for scale_num in range(opt.stop_scale + 1):
 
-        # Initiates the discriminator.
-        # If the scale is bigger than 0 => Load the previous discriminator and init next stage
-        d_curr = init_D(opt)
-        if scale_num > 0:
-            d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
-            generator.init_next_stage()
+            # Generates the directory to save the outputs and file. Also saves the real image for that scale
+            opt.out_ = functions.generate_dir2save(opt)
+            opt.outf = '%s/%d' % (opt.out_, scale_num)
+            try:
+                os.makedirs(opt.outf)
+            except OSError:
+                print(OSError)
+                pass
 
-        # Create the Writer to output stats
-        writer = SummaryWriter(log_dir=opt.outf)
+            functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
 
-        # Trains the Network on a specific scale
-        fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, fixed_noise, noise_amp,
-                                                                       opt, scale_num, writer)
+            # Initiates the discriminator.
+            # If the scale is bigger than 0 => Load the previous discriminator and init next stage
+            d_curr = init_D(opt)
+            if scale_num > 0:
+                d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
+                generator.init_next_stage()
 
-        # Save stats, delete current discriminator and repeat loop
-        torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
-        torch.save(generator, '%s/G.pth' % opt.out_)
-        torch.save(reals, '%s/reals.pth' % opt.out_)
-        torch.save(noise_amp, '%s/noise_amp.pth' % opt.out_)
-        del d_curr
+            # Create the Writer to output stats
+            writer = SummaryWriter(log_dir=opt.outf)
 
-    # Close writer and return
-    writer.close()
+            # Trains the Network on a specific scale
+            fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, fixed_noise,
+                                                                           noise_amp,
+                                                                           opt, scale_num, writer)
+
+            # Save stats, delete current discriminator and repeat loop
+            torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
+            torch.save(generator, '%s/G.pth' % opt.out_)
+            torch.save(reals, '%s/reals.pth' % opt.out_)
+            torch.save(noise_amp, '%s/noise_amp.pth' % opt.out_)
+            del d_curr
+
+        # Close writer and return
+        writer.close()
     return
 
 
@@ -262,10 +274,26 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             writer.add_scalar('Loss/train/D/gradient_penalty/{}'.format(j), gradient_penalty.item(), iter + 1)
             writer.add_scalar('Loss/train/G/gen', errG.item(), iter + 1)
             writer.add_scalar('Loss/train/G/reconstruction', rec_loss.item(), iter + 1)
+
+            # Log metrics
+            log_metric('Discriminator Train Loss Real', -errD_real.item())
+            log_metric('Discriminator Train Loss Fake', errD_fake.item())
+            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty)
+            log_metric('Generator Train Loss', errG.item())
+            log_metric('Generator Train Loss Reconstruction', rec_loss.item())
+
         if iter % 500 == 0 or iter + 1 == opt.niter:
             functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
             generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1)
+
+        if iter + 1 == opt.niter:
+            evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
+            log_metric('FID', evaluator.run_fid())
+            log_metric('LPIPS', evaluator.run_lpips())
+            ssim, ms_ssim = evaluator.run_mssim()
+            log_metric('SSIM', ssim)
+            log_metric('MS-SSIM', ms_ssim)
 
         schedulerD.step()
         schedulerG.step()

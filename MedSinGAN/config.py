@@ -12,6 +12,7 @@ def get_arguments():
     # workspace:
     parser.add_argument('--not_cuda', action='store_true', help='disables cuda', default=0)
     parser.add_argument('--manualSeed', type=int, help='manual seed')
+    parser.add_argument('--experiment_name', help='Experiment Name For MLFlow', type=str, default='Experiment_1')
 
     # stage hyper parameters:
     parser.add_argument('--nfc', type=int, help='number of filters (channels) per conv layer', default=64)
