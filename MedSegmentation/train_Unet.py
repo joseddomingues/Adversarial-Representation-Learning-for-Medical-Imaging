@@ -3,18 +3,17 @@ import os
 import re
 import time
 from argparse import ArgumentParser
-from urllib.parse import urlparse
 
 import cv2
 import torch
 import torch.nn as nn
-from mlflow import log_param, log_metric, start_run, get_tracking_uri
-from mlflow.pytorch import log_model
+from mlflow import log_param, log_metric, start_run
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
 
 from data_augment import unet_augment
+from metrics import jaccard_index, dice_coeff, pixel_accuracy
 from networks import unet
 
 # Create Summary Writter
@@ -31,6 +30,7 @@ arg.add_argument('--val_folder', help='Validation Folder for Segmentation', type
 arg.add_argument('--model_checkpoints', help='Folder For Model Checkpoints', type=str, default='model_checkpoints')
 arg.add_argument('--optimizer_checkpoints', help='Folder For Model Optimizers', type=str, default='model_optimizers')
 arg.add_argument('--graphs_dir', help='Folder For Graphs Model', type=str, default='graphs_unet')
+arg.add_argument('--experiment_name', help='Experiment Name For MLFlow', type=str, default='Experiment_1')
 
 opt_map = arg.parse_args()
 
@@ -44,12 +44,6 @@ checkpoints_directory_unet = opt_map.model_checkpoints
 optimizer_checkpoints_directory_unet = opt_map.optimizer_checkpoints
 graphs_unet_directory = opt_map.graphs_dir
 validation_batch_size = 1
-
-# Log parameters to mlflow
-log_param("N Iterations", n_iters)
-log_param("Learning Rate", learning_rate)
-log_param("Training Batch Size", batch_size)
-log_param("Validation Batch Size", validation_batch_size)
 
 
 class ImageDataset(Dataset):
@@ -108,7 +102,6 @@ validation_dataset = ImageDataset(input_dir=validation_directory, transform=True
 
 num_epochs = n_iters / (len(train_dataset) / batch_size)
 num_epochs = int(num_epochs)
-log_param("Num Epochs", num_epochs)
 
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=batch_size,
@@ -158,7 +151,14 @@ elif not os.path.exists(optimizer_checkpoints_directory_unet):
 beg = time.time()  # time at the beginning of training
 print("Training Started!")
 
-with start_run(nested=True):
+with start_run(nested=True, run_name=opt_map.experiment_name):
+    # Log parameters to mlflow
+    log_param("N Iterations", n_iters)
+    log_param("Learning Rate", learning_rate)
+    log_param("Training Batch Size", batch_size)
+    log_param("Validation Batch Size", validation_batch_size)
+    log_param("Num Epochs", num_epochs)
+
     for epoch in range(num_epochs):
         print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
         for i, datapoint in enumerate(train_loader):
@@ -177,6 +177,12 @@ with start_run(nested=True):
             optimizer.zero_grad()  # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
             outputs = model(image)
             loss = criterion(outputs, masks)
+
+            # Log train metrics
+            log_param("Dice Coeff Train", dice_coeff(y_true=masks, y_pred=outputs))
+            log_param("Pixel Acc Train", pixel_accuracy(gt_segm=masks, eval_segm=outputs))
+            log_param("Jaccard Index Train", jaccard_index(y_true=masks, y_pred=outputs))
+
             loss.backward()  # Backprop
             optimizer.step()  # Weight update
             writer.add_scalar('Training Loss', loss.item(), iteri)
@@ -202,6 +208,12 @@ with start_run(nested=True):
                     # Forward pass only to get logits/output
                     outputs_1 = model(input_image_1)
                     validation_loss += criterion(outputs_1, output_image_1).item()
+
+                    # Log validation metrics
+                    log_param("Dice Coeff Validation", dice_coeff(y_true=output_image_1, y_pred=outputs_1))
+                    log_param("Pixel Acc Validation", pixel_accuracy(gt_segm=output_image_1, eval_segm=outputs_1))
+                    log_param("Jaccard Index Validation", jaccard_index(y_true=output_image_1, y_pred=outputs_1))
+
                     total += datapoint_1['masks'].size(0)
                 validation_loss = validation_loss
                 log_metric("Validation Loss", validation_loss)
@@ -211,15 +223,16 @@ with start_run(nested=True):
                 print('Iteration: {}. Loss: {}. Validation Loss: {}. Time(mins) {}'.format(iteri, loss.item(),
                                                                                            validation_loss,
                                                                                            time_since_beg))
-            if iteri % 500 == 0:
-                # Save checkpoints locally
-                torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-                torch.save(optimizer.state_dict(),
-                           optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-                print("model and optimizer saved at iteration : " + str(iteri))
-                writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
-                    iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
         scheduler.step()
+
+    torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+    torch.save(optimizer.state_dict(),
+               optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+    print("model and optimizer saved at iteration : " + str(iteri))
+    writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
+        iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
     writer.close()
 
-    log_model(pytorch_model=model, artifact_path="model", registered_model_name="UNet_Segmentation_Model_1")
+    # Save model to mlflow
+    # set_tracking_uri("http://localhost:8000")
+    # log_model(model, "model", "UNet_Segmentation_Model_1")
