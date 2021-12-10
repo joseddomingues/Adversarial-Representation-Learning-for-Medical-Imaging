@@ -13,7 +13,7 @@ from torch.autograd import Variable
 from torch.utils.data import Dataset
 
 from data_augment import unet_augment
-from metrics import jaccard_index, dice_coeff
+from evaluate_segmentation import jaccard_index, dice_coeff
 from networks import unet
 
 # Create Summary Writter
