@@ -222,14 +222,4 @@ with start_run(nested=True):
         scheduler.step()
     writer.close()
 
-    # # Save model to mlflow
-    # tracking_url_type_store = urlparse(get_tracking_uri()).scheme
-    # if tracking_url_type_store != "file":
-    #
-    #     # Register the model
-    #     # There are other ways to use the Model Registry, which depends on the use case,
-    #     # please refer to the doc for more information:
-    #     # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-    #     log_model(model, "model", registered_model_name="UNet_Segmentation_Model")
-    # else:
-    #     log_model(model, "model", registered_model_name="UNet_Segmentation_Model_1")
+    log_model(pytorch_model=model, artifact_path="model", registered_model_name="UNet_Segmentation_Model_1")
