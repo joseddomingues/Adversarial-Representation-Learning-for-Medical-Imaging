@@ -18,3 +18,5 @@ tensorboardX~=2.2
 keras
 pytorch-lightning
 mlflow
+streamlit
+pandas
