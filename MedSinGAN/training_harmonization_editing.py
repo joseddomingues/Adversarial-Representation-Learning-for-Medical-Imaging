@@ -3,6 +3,7 @@ import os
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
+from mlflow import log_param, log_metric, start_run
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -13,74 +14,83 @@ from imresize import imresize_to_shape
 
 
 def train(opt):
-    print("Training model with the following parameters:")
-    print("\t number of stages: {}".format(opt.train_stages))
-    print("\t number of concurrently trained stages: {}".format(opt.train_depth))
-    print("\t learning rate scaling: {}".format(opt.lr_scale))
-    print("\t non-linearity: {}".format(opt.activation))
+    with start_run(nested=True, run_name=opt.experiment_name):
 
-    real = functions.read_image(opt)
-    real = functions.adjust_scales2image(real, opt)
-    reals = functions.create_reals_pyramid(real, opt)
-    print("Training on image pyramid: {}".format([r.shape for r in reals]))
-    print("")
+        # Log parameters to mlflow
+        log_param("N Iterations", opt.niter)
+        log_param("Learning Scale Rate", opt.lr_scale)
+        log_param("N Training Stages", opt.train_stages)
+        log_param("Train Depth", opt.train_depth)
+        log_param("Activation Function", opt.activation)
 
-    if opt.naive_img != "":
-        naive_img = functions.read_image_dir(opt.naive_img, opt)
-        naive_img_large = imresize_to_shape(naive_img, reals[-1].shape[2:], opt)
-        naive_img = imresize_to_shape(naive_img, reals[0].shape[2:], opt)
-        naive_img = functions.convert_image_np(naive_img) * 255.0
-    else:
-        naive_img = None
-        naive_img_large = None
+        print("Training model with the following parameters:")
+        print("\t number of stages: {}".format(opt.train_stages))
+        print("\t number of concurrently trained stages: {}".format(opt.train_depth))
+        print("\t learning rate scaling: {}".format(opt.lr_scale))
+        print("\t non-linearity: {}".format(opt.activation))
 
-    if opt.fine_tune:
-        img_to_augment = naive_img
-    else:
-        img_to_augment = functions.convert_image_np(reals[0]) * 255.0
+        real = functions.read_image(opt)
+        real = functions.adjust_scales2image(real, opt)
+        reals = functions.create_reals_pyramid(real, opt)
+        print("Training on image pyramid: {}".format([r.shape for r in reals]))
+        print("")
 
-    if opt.train_mode == "editing":
-        opt.noise_scaling = 0.1
+        if opt.naive_img != "":
+            naive_img = functions.read_image_dir(opt.naive_img, opt)
+            naive_img_large = imresize_to_shape(naive_img, reals[-1].shape[2:], opt)
+            naive_img = imresize_to_shape(naive_img, reals[0].shape[2:], opt)
+            naive_img = functions.convert_image_np(naive_img) * 255.0
+        else:
+            naive_img = None
+            naive_img_large = None
 
-    generator = init_G(opt)
-    if opt.fine_tune:
-        for _ in range(opt.train_stages - 1):
-            generator.init_next_stage()
-        generator.load_state_dict(torch.load('{}/{}/netG.pth'.format(opt.model_dir, opt.train_stages - 1),
-                                             map_location="cuda:{}".format(torch.cuda.current_device())))
-
-    fixed_noise = []
-    noise_amp = []
-
-    for scale_num in range(opt.start_scale, opt.train_stages):
-        opt.out_ = functions.generate_dir2save(opt)
-        opt.outf = '%s/%d' % (opt.out_, scale_num)
-        try:
-            os.makedirs(opt.outf)
-        except OSError:
-            print(OSError)
-            pass
-        functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
-
-        d_curr = init_D(opt)
         if opt.fine_tune:
-            d_curr.load_state_dict(torch.load('{}/{}/netD.pth'.format(opt.model_dir, opt.train_stages - 1),
-                                              map_location="cuda:{}".format(torch.cuda.current_device())))
-        elif scale_num > 0:
-            d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
-            generator.init_next_stage()
+            img_to_augment = naive_img
+        else:
+            img_to_augment = functions.convert_image_np(reals[0]) * 255.0
 
-        writer = SummaryWriter(log_dir=opt.outf)
-        fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, img_to_augment,
-                                                                       naive_img, naive_img_large, fixed_noise,
-                                                                       noise_amp, opt, scale_num, writer)
+        if opt.train_mode == "editing":
+            opt.noise_scaling = 0.1
 
-        torch.save(fixed_noise, '%s/fixed_noise.pth' % (opt.out_))
-        torch.save(generator, '%s/G.pth' % (opt.out_))
-        torch.save(reals, '%s/reals.pth' % (opt.out_))
-        torch.save(noise_amp, '%s/noise_amp.pth' % (opt.out_))
-        del d_curr
-    writer.close()
+        generator = init_G(opt)
+        if opt.fine_tune:
+            for _ in range(opt.train_stages - 1):
+                generator.init_next_stage()
+            generator.load_state_dict(torch.load('{}/{}/netG.pth'.format(opt.model_dir, opt.train_stages - 1),
+                                                 map_location="cuda:{}".format(torch.cuda.current_device())))
+
+        fixed_noise = []
+        noise_amp = []
+
+        for scale_num in range(opt.start_scale, opt.train_stages):
+            opt.out_ = functions.generate_dir2save(opt)
+            opt.outf = '%s/%d' % (opt.out_, scale_num)
+            try:
+                os.makedirs(opt.outf)
+            except OSError:
+                print(OSError)
+                pass
+            functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
+
+            d_curr = init_D(opt)
+            if opt.fine_tune:
+                d_curr.load_state_dict(torch.load('{}/{}/netD.pth'.format(opt.model_dir, opt.train_stages - 1),
+                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
+            elif scale_num > 0:
+                d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
+                generator.init_next_stage()
+
+            writer = SummaryWriter(log_dir=opt.outf)
+            fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, img_to_augment,
+                                                                           naive_img, naive_img_large, fixed_noise,
+                                                                           noise_amp, opt, scale_num, writer)
+
+            torch.save(fixed_noise, '%s/fixed_noise.pth' % (opt.out_))
+            torch.save(generator, '%s/G.pth' % (opt.out_))
+            torch.save(reals, '%s/reals.pth' % (opt.out_))
+            torch.save(noise_amp, '%s/noise_amp.pth' % (opt.out_))
+            del d_curr
+        writer.close()
     return
 
 
@@ -244,6 +254,14 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         # (3) Log Results
         ###########################
         if iter % 250 == 0 or iter + 1 == opt.niter:
+
+            # Log metrics
+            log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
+            log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
+            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
+            log_metric('Generator Train Loss', errG.item(), step=iter + 1)
+            log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
+
             writer.add_scalar('Loss/train/D/real/{}'.format(j), -errD_real.item(), iter + 1)
             writer.add_scalar('Loss/train/D/fake/{}'.format(j), errD_fake.item(), iter + 1)
             writer.add_scalar('Loss/train/D/gradient_penalty/{}'.format(j), gradient_penalty.item(), iter + 1)

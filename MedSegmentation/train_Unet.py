@@ -179,13 +179,15 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
             loss = criterion(outputs, masks)
 
             # Log train metrics
-            log_metric("Dice Coeff Train", dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()))
-            log_metric("Jaccard Index Train", jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()))
+            log_metric("Dice Coeff Train", dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
+                       step=epoch+1)
+            log_metric("Jaccard Index Train", jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
+                       step=epoch+1)
 
             loss.backward()  # Backprop
             optimizer.step()  # Weight update
             writer.add_scalar('Training Loss', loss.item(), iteri)
-            log_metric("Training Loss", loss.item())
+            log_metric("Training Loss", loss.item(), step=epoch+1)
             iteri = iteri + 1
             if iteri % 10 == 0 or iteri == 1:
                 # Calculate Accuracy
@@ -210,13 +212,15 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
 
                     # Log validation metrics
                     log_metric("Dice Coeff Validation",
-                               dice_coeff(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()))
+                               dice_coeff(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
+                               step=epoch+1)
                     log_metric("Jaccard Index Validation",
-                               jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()))
+                               jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
+                               step=epoch+1)
 
                     total += datapoint_1['masks'].size(0)
                 validation_loss = validation_loss
-                log_metric("Validation Loss", validation_loss)
+                log_metric("Validation Loss", validation_loss, step=epoch+1)
                 writer.add_scalar('Validation Loss', validation_loss, iteri)
                 # Print Loss
                 time_since_beg = (time.time() - beg) / 60
