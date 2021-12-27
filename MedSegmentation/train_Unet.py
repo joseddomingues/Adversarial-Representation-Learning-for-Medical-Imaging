@@ -5,6 +5,7 @@ import time
 from argparse import ArgumentParser
 
 import cv2
+import pytorch_lightning.lite as LightningLite
 import torch
 import torch.nn as nn
 from mlflow import log_param, log_metric, start_run
@@ -97,146 +98,149 @@ class ImageDataset(Dataset):
         return sample
 
 
-train_dataset = ImageDataset(input_dir=train_directory, transform=True)  # Training Dataset
-validation_dataset = ImageDataset(input_dir=validation_directory, transform=True)  # Validation Dataset
+class Lite(LightningLite):
+    def run(self):
 
-num_epochs = n_iters / (len(train_dataset) / batch_size)
-num_epochs = int(num_epochs)
+        train_dataset = ImageDataset(input_dir=train_directory, transform=True)  # Training Dataset
+        validation_dataset = ImageDataset(input_dir=validation_directory, transform=True)  # Validation Dataset
 
-train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-                                           batch_size=batch_size,
-                                           shuffle=True)
+        num_epochs = n_iters / (len(train_dataset) / batch_size)
+        num_epochs = int(num_epochs)
 
-validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
-                                                batch_size=validation_batch_size,
-                                                shuffle=False)
+        train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                                   batch_size=batch_size,
+                                                   shuffle=True)
 
-model = unet()  # R2U_Net()
-iteri = 0
-iter_new = 0
+        validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
+                                                        batch_size=validation_batch_size,
+                                                        shuffle=False)
 
-# checking if checkpoints exist to resume training and create it if not
-if os.path.exists(checkpoints_directory_unet) and len(os.listdir(checkpoints_directory_unet)):
-    checkpoints = os.listdir(checkpoints_directory_unet)
-    checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
-    model = torch.load(checkpoints_directory_unet + '/' + checkpoints[-1])  # changed to checkpoints
-    iteri = int(re.findall(r'\d+', checkpoints[-1])[0])  # changed to checkpoints
-    iter_new = iteri
-    print("Resuming from iteration " + str(iteri))
-elif not os.path.exists(checkpoints_directory_unet):
-    os.makedirs(checkpoints_directory_unet)
+        train_loader = self.setup_dataloaders(train_loader)
+        validation_loader = self.setup_dataloaders(validation_loader)
 
-if not os.path.exists(graphs_unet_directory):
-    os.makedirs(graphs_unet_directory)
+        model = unet()  # R2U_Net()
+        iteri = 0
+        iter_new = 0
 
-if torch.cuda.is_available():  # use gpu if available
-    model.cuda()
+        # checking if checkpoints exist to resume training and create it if not
+        if os.path.exists(checkpoints_directory_unet) and len(os.listdir(checkpoints_directory_unet)):
+            checkpoints = os.listdir(checkpoints_directory_unet)
+            checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
+            model = torch.load(checkpoints_directory_unet + '/' + checkpoints[-1])  # changed to checkpoints
+            iteri = int(re.findall(r'\d+', checkpoints[-1])[0])  # changed to checkpoints
+            iter_new = iteri
+            print("Resuming from iteration " + str(iteri))
 
-# Loss Class #BCE Loss has been used here to determine if the pixel belogs to class or not.(This is the case of segmentation of a single class)
-criterion = nn.BCELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # optimizer class
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10,
-                                            gamma=0.1)  # this will decrease the learning rate by factor of 0.1 every 10 epochs
+        elif not os.path.exists(checkpoints_directory_unet):
+            os.makedirs(checkpoints_directory_unet)
 
-# https://discuss.pytorch.org/t/can-t-import-torch-optim-lr-scheduler/5138/6
+        if not os.path.exists(graphs_unet_directory):
+            os.makedirs(graphs_unet_directory)
 
-if os.path.exists(optimizer_checkpoints_directory_unet) and len(os.listdir(optimizer_checkpoints_directory_unet)):
-    checkpoints = os.listdir(optimizer_checkpoints_directory_unet)
-    checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
-    optimizer.load_state_dict(torch.load(optimizer_checkpoints_directory_unet + '/' + checkpoints[-1]))
-    print("Resuming Optimizer from iteration " + str(iteri))
-elif not os.path.exists(optimizer_checkpoints_directory_unet):
-    os.makedirs(optimizer_checkpoints_directory_unet)
+        # Loss Class #BCE Loss has been used here to determine if the pixel belogs to class or not.(This is the case of segmentation of a single class)
+        criterion = nn.BCELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # optimizer class
+        model, optimizer = self.setup(model, optimizer)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10,
+                                                    gamma=0.1)  # this will decrease the learning rate by factor of 0.1 every 10 epochs
 
-beg = time.time()  # time at the beginning of training
-print("Training Started!")
+        # https://discuss.pytorch.org/t/can-t-import-torch-optim-lr-scheduler/5138/6
 
-with start_run(nested=True, run_name=opt_map.experiment_name):
-    # Log parameters to mlflow
-    log_param("N Iterations", n_iters)
-    log_param("Learning Rate", learning_rate)
-    log_param("Training Batch Size", batch_size)
-    log_param("Validation Batch Size", validation_batch_size)
-    log_param("Num Epochs", num_epochs)
+        if os.path.exists(optimizer_checkpoints_directory_unet) and len(
+                os.listdir(optimizer_checkpoints_directory_unet)):
+            checkpoints = os.listdir(optimizer_checkpoints_directory_unet)
+            checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
+            optimizer.load_state_dict(torch.load(optimizer_checkpoints_directory_unet + '/' + checkpoints[-1]))
+            print("Resuming Optimizer from iteration " + str(iteri))
+        elif not os.path.exists(optimizer_checkpoints_directory_unet):
+            os.makedirs(optimizer_checkpoints_directory_unet)
 
-    for epoch in range(num_epochs):
-        print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
-        for i, datapoint in enumerate(train_loader):
-            datapoint['image'] = datapoint['image'].type(
-                torch.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
-            datapoint['masks'] = datapoint['masks'].type(torch.FloatTensor)
+        beg = time.time()  # time at the beginning of training
+        print("Training Started!")
 
-            if torch.cuda.is_available():  # move to gpu if available
-                image = Variable(datapoint['image'].cuda())  # Converting a Torch Tensor to Autograd Variable
-                masks = Variable(datapoint['masks'].cuda())
+        with start_run(nested=True, run_name=opt_map.experiment_name):
+            # Log parameters to mlflow
+            log_param("N Iterations", n_iters)
+            log_param("Learning Rate", learning_rate)
+            log_param("Training Batch Size", batch_size)
+            log_param("Validation Batch Size", validation_batch_size)
+            log_param("Num Epochs", num_epochs)
 
-            else:
-                image = Variable(datapoint['image'])
-                masks = Variable(datapoint['masks'])
+            for epoch in range(num_epochs):
+                print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
+                for i, datapoint in enumerate(train_loader):
+                    datapoint['image'] = datapoint['image'].type(
+                        torch.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
+                    datapoint['masks'] = datapoint['masks'].type(torch.FloatTensor)
 
-            optimizer.zero_grad()  # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
-            outputs = model(image)
-            loss = criterion(outputs, masks)
+                    image = Variable(datapoint['image'])
+                    masks = Variable(datapoint['masks'])
 
-            # Log train metrics
-            log_metric("Dice Coeff Train", dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
-                       step=epoch+1)
-            log_metric("Jaccard Index Train", jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
-                       step=epoch+1)
+                    optimizer.zero_grad()  # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
+                    outputs = model(image)
+                    loss = criterion(outputs, masks)
 
-            loss.backward()  # Backprop
-            optimizer.step()  # Weight update
-            writer.add_scalar('Training Loss', loss.item(), iteri)
-            log_metric("Training Loss", loss.item(), step=epoch+1)
-            iteri = iteri + 1
-            if iteri % 10 == 0 or iteri == 1:
-                # Calculate Accuracy
-                validation_loss = 0
-                total = 0
-                # Iterate through validation dataset
-                for j, datapoint_1 in enumerate(validation_loader):  # for validation
-                    datapoint_1['image'] = datapoint_1['image'].type(torch.FloatTensor)
-                    datapoint_1['masks'] = datapoint_1['masks'].type(torch.FloatTensor)
+                    # Log train metrics
+                    log_metric("Dice Coeff Train",
+                               dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
+                               step=epoch + 1)
+                    log_metric("Jaccard Index Train",
+                               jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
+                               step=epoch + 1)
 
-                    if torch.cuda.is_available():
-                        input_image_1 = Variable(datapoint_1['image'].cuda())
-                        output_image_1 = Variable(datapoint_1['masks'].cuda())
+                    self.backward(loss)  # Backprop
+                    optimizer.step()  # Weight update
+                    writer.add_scalar('Training Loss', loss.item(), iteri)
+                    log_metric("Training Loss", loss.item(), step=epoch + 1)
+                    iteri = iteri + 1
+                    if iteri % 10 == 0 or iteri == 1:
+                        # Calculate Accuracy
+                        validation_loss = 0
+                        total = 0
+                        # Iterate through validation dataset
+                        for j, datapoint_1 in enumerate(validation_loader):  # for validation
+                            datapoint_1['image'] = datapoint_1['image'].type(torch.FloatTensor)
+                            datapoint_1['masks'] = datapoint_1['masks'].type(torch.FloatTensor)
 
-                    else:
-                        input_image_1 = Variable(datapoint_1['image'])
-                        output_image_1 = Variable(datapoint_1['masks'])
+                            input_image_1 = Variable(datapoint_1['image'])
+                            output_image_1 = Variable(datapoint_1['masks'])
 
-                    # Forward pass only to get logits/output
-                    outputs_1 = model(input_image_1)
-                    validation_loss += criterion(outputs_1, output_image_1).item()
+                            # Forward pass only to get logits/output
+                            outputs_1 = model(input_image_1)
+                            validation_loss += criterion(outputs_1, output_image_1).item()
 
-                    # Log validation metrics
-                    log_metric("Dice Coeff Validation",
-                               dice_coeff(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
-                               step=epoch+1)
-                    log_metric("Jaccard Index Validation",
-                               jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
-                               step=epoch+1)
+                            # Log validation metrics
+                            log_metric("Dice Coeff Validation",
+                                       dice_coeff(y_true=output_image_1.detach().cpu(),
+                                                  y_pred=outputs_1.detach().cpu()),
+                                       step=epoch + 1)
+                            log_metric("Jaccard Index Validation",
+                                       jaccard_index(y_true=output_image_1.detach().cpu(),
+                                                     y_pred=outputs_1.detach().cpu()),
+                                       step=epoch + 1)
 
-                    total += datapoint_1['masks'].size(0)
-                validation_loss = validation_loss
-                log_metric("Validation Loss", validation_loss, step=epoch+1)
-                writer.add_scalar('Validation Loss', validation_loss, iteri)
-                # Print Loss
-                time_since_beg = (time.time() - beg) / 60
-                print('Iteration: {}. Loss: {}. Validation Loss: {}. Time(mins) {}'.format(iteri, loss.item(),
-                                                                                           validation_loss,
-                                                                                           time_since_beg))
-        scheduler.step()
+                            total += datapoint_1['masks'].size(0)
+                        validation_loss = validation_loss
+                        log_metric("Validation Loss", validation_loss, step=epoch + 1)
+                        writer.add_scalar('Validation Loss', validation_loss, iteri)
+                        # Print Loss
+                        time_since_beg = (time.time() - beg) / 60
+                        print('Iteration: {}. Loss: {}. Validation Loss: {}. Time(mins) {}'.format(iteri, loss.item(),
+                                                                                                   validation_loss,
+                                                                                                   time_since_beg))
+                scheduler.step()
 
-    torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-    torch.save(optimizer.state_dict(),
-               optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
-    print("model and optimizer saved at iteration : " + str(iteri))
-    writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
-        iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
-    writer.close()
+            torch.save(model, checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+            torch.save(optimizer.state_dict(),
+                       optimizer_checkpoints_directory_unet + '/model_iter_' + str(iteri) + '.pt')
+            print("model and optimizer saved at iteration : " + str(iteri))
+            writer.export_scalars_to_json(graphs_unet_directory + "/all_scalars_" + str(
+                iter_new) + ".json")  # saving loss vs iteration data to be used by visualise.py
+            writer.close()
 
-    # Save model to mlflow
-    # set_tracking_uri("http://localhost:8000")
-    # log_model(model, "model", "UNet_Segmentation_Model_1")
+        # Save model to mlflow
+        # set_tracking_uri("http://localhost:8000")
+        # log_model(model, "model", "UNet_Segmentation_Model_1")
+
+
+Lite(devices="auto", accelerator="auto").run()
