@@ -5,7 +5,7 @@ import time
 from argparse import ArgumentParser
 
 import cv2
-import pytorch_lightning.lite as LightningLite
+from pytorch_lightning.lite import LightningLite
 import torch
 import torch.nn as nn
 from mlflow import log_param, log_metric, start_run
@@ -99,6 +99,7 @@ class ImageDataset(Dataset):
 
 
 class Lite(LightningLite):
+
     def run(self):
 
         train_dataset = ImageDataset(input_dir=train_directory, transform=True)  # Training Dataset
@@ -170,8 +171,8 @@ class Lite(LightningLite):
                 print("\nEPOCH " + str(epoch + 1) + " of " + str(num_epochs) + "\n")
                 for i, datapoint in enumerate(train_loader):
                     datapoint['image'] = datapoint['image'].type(
-                        torch.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
-                    datapoint['masks'] = datapoint['masks'].type(torch.FloatTensor)
+                        torch.cuda.FloatTensor)  # typecasting to FloatTensor as it is compatible with CUDA
+                    datapoint['masks'] = datapoint['masks'].type(torch.cuda.FloatTensor)
 
                     image = Variable(datapoint['image'])
                     masks = Variable(datapoint['masks'])
@@ -199,8 +200,8 @@ class Lite(LightningLite):
                         total = 0
                         # Iterate through validation dataset
                         for j, datapoint_1 in enumerate(validation_loader):  # for validation
-                            datapoint_1['image'] = datapoint_1['image'].type(torch.FloatTensor)
-                            datapoint_1['masks'] = datapoint_1['masks'].type(torch.FloatTensor)
+                            datapoint_1['image'] = datapoint_1['image'].type(torch.cuda.FloatTensor)
+                            datapoint_1['masks'] = datapoint_1['masks'].type(torch.cuda.FloatTensor)
 
                             input_image_1 = Variable(datapoint_1['image'])
                             output_image_1 = Variable(datapoint_1['masks'])
@@ -243,4 +244,4 @@ class Lite(LightningLite):
         # log_model(model, "model", "UNet_Segmentation_Model_1")
 
 
-Lite(devices="auto", accelerator="auto").run()
+Lite(devices="auto", accelerator="gpu", strategy="deepspeed").run()
