@@ -244,4 +244,4 @@ class Lite(LightningLite):
         # log_model(model, "model", "UNet_Segmentation_Model_1")
 
 
-Lite(devices="auto", accelerator="gpu", strategy="deepspeed").run()
+Lite(devices="auto", accelerator="gpu").run()

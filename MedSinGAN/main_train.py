@@ -96,7 +96,8 @@ if __name__ == '__main__':
     # train model
     print("Training model ({})".format(dir2save))
     start = time.time()
-    train(opt)
+    Lite(devices="auto", accelerator="gpu").run(opt)
+    #train(opt)
     end = time.time()
     elapsed_time = end - start
     print("Time for training: {} seconds".format(elapsed_time))
