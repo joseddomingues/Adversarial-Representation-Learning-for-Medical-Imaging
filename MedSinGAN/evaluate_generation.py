@@ -24,7 +24,7 @@ class GenerationEvaluator:
 
         output_images = {}
         for im in os.listdir(self.generated_images):
-            output_images[im] = transform(Image.open(self.generated_images + '/' + im))
+            output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
             output_images[im] = output_images[im].reshape(
                 (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
 

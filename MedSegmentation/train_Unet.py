@@ -119,7 +119,7 @@ iter_new = 0
 if os.path.exists(checkpoints_directory_unet) and len(os.listdir(checkpoints_directory_unet)):
     checkpoints = os.listdir(checkpoints_directory_unet)
     checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
-    model = torch.load(checkpoints_directory_unet + '/' + checkpoints[-1])  # changed to checkpoints
+    model = torch.load(os.path.join(checkpoints_directory_unet, checkpoints[-1]))  # changed to checkpoints
     iteri = int(re.findall(r'\d+', checkpoints[-1])[0])  # changed to checkpoints
     iter_new = iteri
     print("Resuming from iteration " + str(iteri))
@@ -143,7 +143,8 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10,
 if os.path.exists(optimizer_checkpoints_directory_unet) and len(os.listdir(optimizer_checkpoints_directory_unet)):
     checkpoints = os.listdir(optimizer_checkpoints_directory_unet)
     checkpoints.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
-    optimizer.load_state_dict(torch.load(optimizer_checkpoints_directory_unet + '/' + checkpoints[-1]))
+
+    optimizer.load_state_dict(torch.load(os.path.join(optimizer_checkpoints_directory_unet, checkpoints[-1])))
     print("Resuming Optimizer from iteration " + str(iteri))
 elif not os.path.exists(optimizer_checkpoints_directory_unet):
     os.makedirs(optimizer_checkpoints_directory_unet)
@@ -180,14 +181,14 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
 
             # Log train metrics
             log_metric("Dice Coeff Train", dice_coeff(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
-                       step=epoch+1)
+                       step=epoch + 1)
             log_metric("Jaccard Index Train", jaccard_index(y_true=masks.detach().cpu(), y_pred=outputs.detach().cpu()),
-                       step=epoch+1)
+                       step=epoch + 1)
 
             loss.backward()  # Backprop
             optimizer.step()  # Weight update
             writer.add_scalar('Training Loss', loss.item(), iteri)
-            log_metric("Training Loss", loss.item(), step=epoch+1)
+            log_metric("Training Loss", loss.item(), step=epoch + 1)
             iteri = iteri + 1
             if iteri % 10 == 0 or iteri == 1:
                 # Calculate Accuracy
@@ -213,14 +214,14 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
                     # Log validation metrics
                     log_metric("Dice Coeff Validation",
                                dice_coeff(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
-                               step=epoch+1)
+                               step=epoch + 1)
                     log_metric("Jaccard Index Validation",
                                jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
-                               step=epoch+1)
+                               step=epoch + 1)
 
                     total += datapoint_1['masks'].size(0)
                 validation_loss = validation_loss
-                log_metric("Validation Loss", validation_loss, step=epoch+1)
+                log_metric("Validation Loss", validation_loss, step=epoch + 1)
                 writer.add_scalar('Validation Loss', validation_loss, iteri)
                 # Print Loss
                 time_since_beg = (time.time() - beg) / 60

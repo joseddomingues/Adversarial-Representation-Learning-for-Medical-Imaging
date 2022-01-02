@@ -18,7 +18,7 @@ opt_map = arg.parse_args()
 checkpoints_directory_unet = opt_map.model_dir  # "checkpoints_unet"
 checkpoints_unet = os.listdir(checkpoints_directory_unet)
 checkpoints_unet.sort(key=lambda x: int((x.split('_')[2]).split('.')[0]))
-model_unet = torch.load(checkpoints_directory_unet + '/' + checkpoints_unet[-1])
+model_unet = torch.load(os.path.join(checkpoints_directory_unet, checkpoints_unet[-1]))
 
 # Check and create if needed output folder
 if not os.path.exists(opt_map.output_folder):
@@ -72,8 +72,7 @@ def _segment_image(image, model):
 # For each image, segment the image and save it to the output folder
 images = [file for file in os.listdir(opt_map.test_images) if not file.startswith('.')]
 for image in images:
-    curr_image = opt_map.test_images + '/' + image
+    curr_image = os.path.join(opt_map.test_images, image)
     result = _segment_image(curr_image, model_unet)
-    name_aux = image.split('.')
-    name_aux = opt_map.output_folder + '/' + name_aux[0] + '_mask.' + name_aux[1]
+    name_aux = os.path.join(opt_map.output_folder, image.replace('.png', '_mask.png'))
     cv2.imwrite(name_aux, result)
