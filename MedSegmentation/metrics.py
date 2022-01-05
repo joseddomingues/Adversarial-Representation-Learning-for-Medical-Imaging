@@ -2,34 +2,6 @@ import numpy as np
 from keras import backend as K
 
 
-def dice_coeff1(im1, im2, empty_score=1.0):
-    """
-    Calculates the dice coefficient for the images
-    @param im1:
-    @param im2:
-    @param empty_score:
-    @return:
-    """
-
-    im1 = np.asarray(im1).astype(np.bool)
-    im2 = np.asarray(im2).astype(np.bool)
-
-    if im1.shape != im2.shape:
-        raise ValueError("Shape mismatch: im1 and im2 must have the same shape.")
-
-    im1 = im1 > 0.5
-    im2 = im2 > 0.5
-
-    im_sum = im1.sum() + im2.sum()
-    if im_sum == 0:
-        return empty_score
-
-    # Compute Dice coefficient
-    intersection = np.logical_and(im1, im2)
-
-    return 2. * intersection.sum() / im_sum
-
-
 def numeric_score(prediction, groundtruth):
     """Computes scores:
     FP = False Positives
@@ -70,6 +42,21 @@ def dice_coeff(y_true, y_pred, smooth=1):
     return K.get_value(dice)
 
 
+def dice_coeff_variant(y_true, y_pred, smooth=1):
+    """
+    Calculates the dice coefficient for the images
+    @param y_true: The ground truth mask
+    @param y_pred: The predicted mask
+    @param smooth:
+    @return: The Dice Coefficient value
+    """
+
+    intersection = K.sum(y_true * y_pred)
+    union = K.sum(y_true) + K.sum(y_pred)
+    dice = K.mean((2. * intersection + smooth) / (union + smooth))
+    return K.get_value(dice)
+
+
 def jaccard_index(y_true, y_pred, smooth=1):
     """
     Performs jaccard index using jaccard score from scikit learn
@@ -82,4 +69,19 @@ def jaccard_index(y_true, y_pred, smooth=1):
     intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
     union = K.sum(y_true, [1, 2, 3]) + K.sum(y_pred, [1, 2, 3]) - intersection
     iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
+    return K.get_value(iou)
+
+
+def jaccard_index_variant(y_true, y_pred, smooth=1):
+    """
+    Performs jaccard index using jaccard score from scikit learn
+    @param smooth:
+    @param y_true: The true ground truth value
+    @param y_pred: The predicted value
+    @return: The Jaccard score between the two images
+    """
+
+    intersection = K.sum(K.abs(y_true * y_pred))
+    union = K.sum(y_true) + K.sum(y_pred) - intersection
+    iou = K.mean((intersection + smooth) / (union + smooth))
     return K.get_value(iou)

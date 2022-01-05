@@ -144,7 +144,6 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
         train_loss = 0.0
         valid_loss = 0.0
 
-        scheduler.step(epoch)
         model.train()
 
         for i, datapoint in enumerate(train_loader):
@@ -194,6 +193,8 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
             log_metric("Jaccard Index Validation",
                        jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
                        step=epoch + 1)
+
+        scheduler.step(epoch)
 
         train_loss = train_loss / len(train_loader)
         valid_loss = valid_loss / len(validation_loader)

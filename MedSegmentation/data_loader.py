@@ -24,14 +24,14 @@ class ImageDataset(Dataset):
         img_id = self.dirlist[idx]
 
         folder_contents = os.listdir(os.path.join(self.input_dir, img_id))
-        i_path = [elem for elem in folder_contents if 'mask' not in elem][0]
-        m_path = [elem for elem in folder_contents if 'mask' in elem][0]
+        i_path = os.path.join(self.input_dir, img_id, [elem for elem in folder_contents if 'mask' not in elem][0])
+        m_path = os.path.join(self.input_dir, img_id, [elem for elem in folder_contents if 'mask' in elem][0])
 
         image = cv2.imread(i_path)
         mask = cv2.imread(m_path, 0)
         mask = mask.reshape((mask.shape[0], mask.shape[1], 1))
 
-        if mask.shape != image.shape:
+        if mask.shape[0] != image.shape[0] or mask.shape[1] != image.shape[1]:
             raise IOError('Image and Masks shape dont match')
 
         sample = {'image': image, 'masks': mask}
@@ -45,7 +45,7 @@ class ImageDataset(Dataset):
         sample['image'].astype(float)
         sample['image'] = sample['image'] / 255
 
-        sample['masks'] = sample['masks'].transpose((2, 0, 1))
+        sample['masks'] = sample['masks'].reshape((mask.shape[0], mask.shape[1], 1)).transpose((2, 0, 1))
         sample['masks'].astype(float)
         sample['masks'] = sample['masks'] / 255
 

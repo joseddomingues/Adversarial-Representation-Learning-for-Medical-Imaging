@@ -6,7 +6,7 @@ import torch
 from torch.autograd import Variable
 
 # Creates argument parser
-from metrics import dice_coeff, jaccard_index, accuracy_score
+from metrics import accuracy_score, dice_coeff_variant, jaccard_index_variant
 
 arg = ArgumentParser()
 
@@ -45,6 +45,7 @@ if train_on_gpu:
 
 device = torch.device("cuda:0" if train_on_gpu else "cpu")
 
+
 def _segment_image(image, model):
     """
     Apply segmentation on a given image with a given model
@@ -62,7 +63,7 @@ def _segment_image(image, model):
     input_unet = input_unet.transpose((3, 2, 0, 1))
 
     input_unet.astype(float)
-    input_unet = input_unet/255
+    input_unet = input_unet / 255
 
     input_unet = torch.from_numpy(input_unet)
     input_unet = input_unet.type(torch.FloatTensor)
@@ -87,7 +88,6 @@ for image in images:
     name_aux = os.path.join(opt_map.output_folder, image.replace('.png', '_mask.png'))
     cv2.imwrite(name_aux, result)
 
-
 #######################################################
 # Evaluate segmented images
 #######################################################
@@ -97,16 +97,16 @@ acc = 0
 pred_folder = opt_map.output_folder
 or_folder = opt_map.gt_images
 for i in os.listdir(or_folder):
-  t = cv2.imread(os.path.join(or_folder, i), 0)
-  p = cv2.imread(os.path.join(pred_folder, i), 0)
+    t = cv2.imread(os.path.join(or_folder, i), 0)
+    p = cv2.imread(os.path.join(pred_folder, i), 0)
 
-  t = t.reshape((t.shape[0], t.shape[1], 1)).transpose((2, 0, 1)).astype(float)/255
-  p = p.reshape((p.shape[0], p.shape[1], 1)).transpose((2, 0, 1)).astype(float)/255
+    t = t.reshape((t.shape[0], t.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
+    p = p.reshape((p.shape[0], p.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
 
-  dice += dice_coeff(t, p)
-  jacc += jaccard_index(t, p)
-  acc += accuracy_score(p, t)
+    dice += dice_coeff_variant(t, p)
+    jacc += jaccard_index_variant(t, p)
+    acc += accuracy_score(p, t)
 
-print("Dice Coefficient:", dice/len(os.listdir(or_folder)))
-print("Jaccard Index:", jacc/len(os.listdir(or_folder)))
-print("Accuracy:", acc/len(os.listdir(or_folder)))
+print("Dice Coefficient:", dice / len(os.listdir(or_folder)))
+print("Jaccard Index:", jacc / len(os.listdir(or_folder)))
+print("Accuracy:", acc / len(os.listdir(or_folder)))
