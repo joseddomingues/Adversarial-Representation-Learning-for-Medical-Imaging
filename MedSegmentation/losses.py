@@ -31,8 +31,9 @@ def calc_loss(prediction, target, bce_weight=0.5):
         bce_weight = 0.5 (default)
     Output:
         loss : dice loss of the epoch """
-    bce = F.binary_cross_entropy_with_logits(prediction, target)
-    prediction = torch.sigmoid(prediction)
+    bce = torch.nn.BCELoss()
+    bce = bce(prediction, target) # F.binary_cross_entropy_with_logits(prediction, target)
+    # prediction = torch.sigmoid(prediction)
     dice = dice_loss(prediction, target)
 
     loss = bce * bce_weight + dice * (1 - bce_weight)

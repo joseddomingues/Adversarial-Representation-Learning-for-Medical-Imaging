@@ -157,7 +157,7 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
             # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
             optimizer.zero_grad()
             outputs = model(image)
-            loss = calc_loss(outputs, masks)
+            loss = calc_loss(outputs, masks, 0.1)
             train_loss += loss.item()
 
             # Log train metrics
@@ -183,7 +183,7 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
 
             # Forward pass only to get logits/output
             outputs_1 = model(input_image_1)
-            loss = calc_loss(outputs_1, output_image_1)
+            loss = calc_loss(outputs_1, output_image_1, 0.1)
             valid_loss += loss.item()
 
             # Log validation metrics
@@ -194,7 +194,7 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
                        jaccard_index(y_true=output_image_1.detach().cpu(), y_pred=outputs_1.detach().cpu()),
                        step=epoch + 1)
 
-        scheduler.step(epoch)
+        scheduler.step()
 
         train_loss = train_loss / len(train_loader)
         valid_loss = valid_loss / len(validation_loader)
