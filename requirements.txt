@@ -18,3 +18,4 @@ keras
 mlflow
 pandas
 pydicom
+torchsummary
