@@ -103,7 +103,7 @@ elif not os.path.exists(checkpoints_directory_unet):
 #######################################################
 
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # try SGD
-# optimizer = optim.SGD(model_test.parameters(), lr = initial_lr, momentum=0.99)
+# optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.99)
 
 MAX_STEP = int(1e10)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, MAX_STEP, eta_min=1e-5)
