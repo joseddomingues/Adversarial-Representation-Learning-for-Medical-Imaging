@@ -3,7 +3,7 @@ import os
 import cv2
 from torch.utils.data import Dataset
 
-from MedSegmentation.data_augment import unet_augment
+from data_augment import unet_augment
 
 
 class ImageDataset(Dataset):

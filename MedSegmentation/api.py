@@ -6,7 +6,7 @@ import torch
 from torch.autograd import Variable
 
 # Creates argument parser
-from MedSegmentation.metrics import dice_coeff, jaccard_index, accuracy_score
+from metrics import dice_coeff, jaccard_index, accuracy_score
 
 arg = ArgumentParser()
 

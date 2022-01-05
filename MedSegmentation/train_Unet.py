@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
 
-from MedSegmentation.losses import calc_loss
+from losses import calc_loss
 from data_loader import ImageDataset
 from metrics import jaccard_index, dice_coeff
 from networks import U_Net
