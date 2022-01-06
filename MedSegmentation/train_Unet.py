@@ -9,8 +9,8 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import Dataset
 
-from losses import calc_loss
 from data_loader import ImageDataset
+from losses import calc_loss
 from metrics import jaccard_index, dice_coeff
 from networks import U_Net
 
@@ -105,10 +105,11 @@ elif not os.path.exists(checkpoints_directory_unet):
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # try SGD
 # optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.99)
 
-MAX_STEP = int(1e10)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, MAX_STEP, eta_min=1e-5)
+# MAX_STEP = int(1e10)
+# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, MAX_STEP, eta_min=1e-5)
 # scheduler = optim.lr_scheduler.CosineAnnealingLr(opt, epoch, 1)
 # This will decrease the learning rate by factor of 0.1 every 10 epochs
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.1)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
 
 #######################################################
@@ -136,6 +137,9 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
     log_param("Learning Rate", learning_rate)
     log_param("Batch Size", batch_size)
     log_param("Num Epochs", num_epochs)
+    log_param("BCE Weight", 0.1)
+    log_param("Optimizer", "ADAM")
+    log_param("Scheduler", "StepLR")
 
     for epoch in range(num_epochs):
 
