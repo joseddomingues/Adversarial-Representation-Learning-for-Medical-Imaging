@@ -161,7 +161,7 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
             # https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/3
             optimizer.zero_grad()
             outputs = model(image)
-            loss = calc_loss(outputs, masks, 0.1)
+            loss = calc_loss(outputs, masks)
             train_loss += loss.item()
 
             # Log train metrics
@@ -187,7 +187,7 @@ with start_run(nested=True, run_name=opt_map.experiment_name):
 
             # Forward pass only to get logits/output
             outputs_1 = model(input_image_1)
-            loss = calc_loss(outputs_1, output_image_1, 0.1)
+            loss = calc_loss(outputs_1, output_image_1)
             valid_loss += loss.item()
 
             # Log validation metrics
