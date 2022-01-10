@@ -63,11 +63,12 @@ for file_name in os.listdir(source_folder):
 
 # For each entry in dictionary, generate mask and save in correponding
 # folder
+
+
+mask_folder = os.path.join(to_save_folder, "masks")
+mask = np.zeros((MASK_WIDTH, MASK_HEIGHT))
+
 for itr in file_bbs:
-    num_masks = itr.split("*")
-    to_save_folder = os.path.join(source_folder, num_masks[0])
-    mask_folder = os.path.join(to_save_folder, "masks")
-    mask = np.zeros((MASK_WIDTH, MASK_HEIGHT))
     try:
         arr = np.array(file_bbs[itr])
     except:
@@ -76,9 +77,6 @@ for itr in file_bbs:
     count += 1
     cv2.fillPoly(mask, [arr], color=(255))
 
-    if len(num_masks) > 1:
-        cv2.imwrite(os.path.join(mask_folder, itr.replace("*", "_") + ".png"), mask)
-    else:
-        cv2.imwrite(os.path.join(mask_folder, itr + ".png"), mask)
+cv2.imwrite(os.path.join(mask_folder, itr + ".png"), mask)
 
 print("Images saved:", count)
