@@ -12,7 +12,7 @@ json_path = "mask_new_dataset.json"  # Relative to root directory
 count = 0  # Count of total images saved
 file_bbs = {}  # Dictionary containing polygon coordinates for mask
 MASK_WIDTH = 2457  # Dimensions should match those of ground truth image
-MASK_HEIGHT = 1890
+MASK_HEIGHT = 1996
 
 # Read JSON file
 with open(json_path) as f:
