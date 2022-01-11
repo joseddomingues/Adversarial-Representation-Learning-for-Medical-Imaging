@@ -12,8 +12,11 @@ arg = ArgumentParser()
 
 arg.add_argument('--model_dir', required=True, help='Checkpoints Model Directory Path')
 arg.add_argument('--test_images', required=True, help='Test Images Directory Path')
-arg.add_argument('--gt_images', required=True, help='Ground Truth Images Directory Path')
+arg.add_argument('--gt_images', help='Ground Truth Images Directory Path')
 arg.add_argument('--output_folder', help='Output Folder To Save Segmentation Masks', default='results')
+arg.add_argument('--eval', dest='eval', help='Flag to evaluate metrics. Required to pass gt_images', action='store_true')
+arg.add_argument('--no_eval', dest='eval', help='Flag to not evaluate metrics', action='store_false')
+arg.set_defaults(eval=False)
 
 opt_map = arg.parse_args()
 
@@ -91,22 +94,23 @@ for image in images:
 #######################################################
 # Evaluate segmented images
 #######################################################
-dice = 0
-jacc = 0
-acc = 0
-pred_folder = opt_map.output_folder
-or_folder = opt_map.gt_images
-for i in os.listdir(or_folder):
-    t = cv2.imread(os.path.join(or_folder, i), 0)
-    p = cv2.imread(os.path.join(pred_folder, i), 0)
+if opt_map.eval:
+    dice = 0
+    jacc = 0
+    acc = 0
+    pred_folder = opt_map.output_folder
+    or_folder = opt_map.gt_images
+    for i in os.listdir(or_folder):
+        t = cv2.imread(os.path.join(or_folder, i), 0)
+        p = cv2.imread(os.path.join(pred_folder, i), 0)
 
-    t = t.reshape((t.shape[0], t.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
-    p = p.reshape((p.shape[0], p.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
+        t = t.reshape((t.shape[0], t.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
+        p = p.reshape((p.shape[0], p.shape[1], 1)).transpose((2, 0, 1)).astype(float) / 255
 
-    dice += dice_coeff_variant(t, p)
-    jacc += jaccard_index_variant(t, p)
-    acc += accuracy_score(p, t)
+        dice += dice_coeff_variant(t, p)
+        jacc += jaccard_index_variant(t, p)
+        acc += accuracy_score(p, t)
 
-print("Dice Coefficient:", dice / len(os.listdir(or_folder)))
-print("Jaccard Index:", jacc / len(os.listdir(or_folder)))
-print("Accuracy:", acc / len(os.listdir(or_folder)))
+    print("Dice Coefficient:", dice / len(os.listdir(or_folder)))
+    print("Jaccard Index:", jacc / len(os.listdir(or_folder)))
+    print("Accuracy:", acc / len(os.listdir(or_folder)))
