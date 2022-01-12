@@ -276,11 +276,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             writer.add_scalar('Loss/train/G/reconstruction', rec_loss.item(), iter + 1)
 
             # Log metrics
-            log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter+1)
-            log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter+1)
-            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter+1)
-            log_metric('Generator Train Loss', errG.item(), step=iter+1)
-            log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter+1)
+            log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
+            log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
+            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
+            log_metric('Generator Train Loss', errG.item(), step=iter + 1)
+            log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
 
         if iter % 500 == 0 or iter + 1 == opt.niter:
             functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
@@ -292,11 +292,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
     if depth + 1 == len(reals):
         evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
-        log_metric('FID', evaluator.run_fid(), step=iter+1)
-        log_metric('LPIPS', evaluator.run_lpips(), step=iter+1)
+        log_metric('FID', evaluator.run_fid(), step=iter + 1)
+        log_metric('LPIPS', evaluator.run_lpips(), step=iter + 1)
         ssim, ms_ssim = evaluator.run_mssim()
-        log_metric('SSIM', ssim, step=iter+1)
-        log_metric('MS-SSIM', ms_ssim, step=iter+1)
+        log_metric('SSIM', ssim, step=iter + 1)
+        log_metric('MS-SSIM', ms_ssim, step=iter + 1)
         # break
 
     # saves the networks

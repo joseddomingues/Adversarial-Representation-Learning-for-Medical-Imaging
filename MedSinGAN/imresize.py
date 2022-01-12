@@ -1,6 +1,7 @@
+from math import pi
+
 import numpy as np
 import torch
-from math import pi
 from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 

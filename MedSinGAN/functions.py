@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from albumentations import HueSaturationValue, IAAAdditiveGaussianNoise, GaussNoise, OneOf, \
+from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
     ChannelDropout
@@ -552,7 +552,6 @@ class Augment:
             OneOf([
                 OneOf([
                     MultiplicativeNoise(multiplier=[0.5, 1.5], elementwise=True, per_channel=True, p=0.2),
-                    IAAAdditiveGaussianNoise(),
                     GaussNoise()]),
                 OneOf([
                     InvertImg(),

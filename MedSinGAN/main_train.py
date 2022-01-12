@@ -2,7 +2,7 @@ import glob
 import os
 import os.path as osp
 import time
-from shutil import copyfile, copytree
+from shutil import copyfile
 
 import torch
 
