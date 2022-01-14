@@ -449,9 +449,23 @@ def dilate_mask(mask, opt):
     if opt.train_mode == "editing":
         element = morphology.disk(radius=20)
     mask = torch2uint8(mask)
-    mask = mask[:, :, 0]
-    mask = morphology.binary_dilation(mask, selem=element)
-    mask = filters.gaussian(mask, sigma=5)
+    # For each channel
+    new_mask = []
+    mask1 = mask[:, :, 0]
+    mask1 = morphology.binary_dilation(mask1, footprint=element)
+    mask1 = filters.gaussian(mask1, sigma=5)
+    new_mask.append(mask1)
+    mask2 = mask[:, :, 1]
+    mask2 = morphology.binary_dilation(mask2, footprint=element)
+    mask2 = filters.gaussian(mask2, sigma=5)
+    new_mask.append(mask2)
+    mask3 = mask[:, :, 2]
+    mask3 = morphology.binary_dilation(mask3, footprint=element)
+    mask3 = filters.gaussian(mask3, sigma=5)
+    new_mask.append(mask3)
+    mask = np.array(new_mask)
+    mask = mask.transpose(1, 2, 0)
+    # End
     nc_im = opt.nc_im
     opt.nc_im = 1
     mask = np2torch(mask, opt)
