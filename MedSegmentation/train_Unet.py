@@ -30,6 +30,7 @@ arg.add_argument('--val_folder', help='Validation Folder for Segmentation', type
 arg.add_argument('--model_checkpoints', help='Folder For Model Checkpoints', type=str, default='model_checkpoints')
 arg.add_argument('--optimizer_checkpoints', help='Folder For Model Optimizers', type=str, default='model_optimizers')
 arg.add_argument('--experiment_name', help='Experiment Name For MLFlow', type=str, default='Experiment_1')
+arg.add_argument('--scheduler', help='Scheduler to use. step or cosine', type=str, choices=['step', 'cosine'])
 
 opt_map = arg.parse_args()
 
@@ -106,11 +107,13 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # try SGD
 # optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.99)
 
 MAX_STEP = int(1e10)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, MAX_STEP, eta_min=1e-5)
+if opt_map.scheduler == 'cosine':
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, MAX_STEP, eta_min=1e-5)
+else:
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.1)
 # scheduler = optim.lr_scheduler.CosineAnnealingLr(opt, epoch, 1)
 # This will decrease the learning rate by factor of 0.1 every 10 epochs
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.1)
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+
 
 #######################################################
 # Resuming Optimizer

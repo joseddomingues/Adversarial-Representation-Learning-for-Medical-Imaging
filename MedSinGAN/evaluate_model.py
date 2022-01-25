@@ -96,18 +96,15 @@ if __name__ == '__main__':
         print("Generating Samples...")
         with torch.no_grad():
             # # generate reconstruction
-            generate_samples(netG, reals_shapes, noise_amp, reconstruct=True, im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, reconstruct=True)
 
             # generate random samples of normal resolution
             rs0 = generate_samples(netG, reals_shapes, noise_amp, n=opt.num_samples)
 
             # generate random samples of different resolution
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples,
-                             im_name=opt.naive_img)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples,
-                             im_name=opt.naive_img)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples,
-                             im_name=opt.naive_img)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples)
+            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples)
 
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         opt.noise_scaling = 0.1
