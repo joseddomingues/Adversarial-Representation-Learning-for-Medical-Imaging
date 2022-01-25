@@ -93,12 +93,22 @@ def get_latest_model(base_path):
 ###################################################################################################
 
 def get_image_laterality(image):
+    """
+    Get image laterality
+    @param image: Image to find laterality
+    @return: "(R,L)" -> For veracity values
+    """
     left_edge = np.sum(image[:, 0])
     right_edge = np.sum(image[:, -1])
     return (True, False) if left_edge < right_edge else (False, True)
 
 
 def get_measures(image):
+    """
+    Get image widest positions
+    @param image: Image to return positions
+    @return: top, right, bottom, left point
+    """
     positions = np.nonzero(image)
     top = positions[0].min()
     bottom = positions[0].max()
@@ -108,6 +118,11 @@ def get_measures(image):
 
 
 def get_start_coordinate(image):
+    """
+    Get image start coordinate collage point
+    @param image: Image to get start coordinate
+    @return: The starting coordinate
+    """
     positions = np.nonzero(image)
     bottom = positions[0].max()
     x_bottom = int(np.mean(np.nonzero(image[bottom])))
@@ -115,6 +130,11 @@ def get_start_coordinate(image):
 
 
 def get_correct_value(number):
+    """
+    Auxiliary function to convert image to binary values
+    @param number: Number to check
+    @return: 0 | 1 according to the value
+    """
     if number == 0:
         return 0
     else:
@@ -122,6 +142,12 @@ def get_correct_value(number):
 
 
 def image_to_binary(image, pth):
+    """
+    Convert image to binary
+    @param image: Image to convert image
+    @param pth: Path to save the image
+    @return: The image in binary
+    """
     b_image = []
     for arr in image:
         curr = [get_correct_value(elem) for elem in arr]
@@ -133,6 +159,14 @@ def image_to_binary(image, pth):
 
 
 def does_collage_mask(width, height, malign, normal):
+    """
+    Verifies if this try of collage is possible
+    @param width: Width of starting point
+    @param height: Height of starting point
+    @param malign: Malign mass
+    @param normal: Normal breast
+    @return: True if possible | False if not
+    """
     # Crop both the mass, and the normal
     crop_segmentation(malign, 'malign_aux.png')
 
@@ -147,6 +181,12 @@ def does_collage_mask(width, height, malign, normal):
 
 
 def is_collage_possible(malign_mask_pth, normal_breast_pth):
+    """
+    Checks if collage is possible
+    @param malign_mask_pth: Malign Mask path
+    @param normal_breast_pth: Normal breast path
+    @return: -1,-1 if collage is not possible | w,h if its possible
+    """
     # Operations Threshold
     threshold = 50
 
@@ -220,6 +260,12 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
 
 # Remove the 4 channel to collage image
 def remove_4_channel(im_path, output_path):
+    """
+    Remove the 4-channel tof the collage image
+    @param im_path: Image to remove
+    @param output_path: Output resulting image
+    @return: -
+    """
     img = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
 
     # Transpose naive image to properly see it
@@ -234,6 +280,13 @@ def remove_4_channel(im_path, output_path):
 
 # Resize image for hamronisation
 def resize_image(im_path, percent_original, output_path):
+    """
+    Resizes image for harmonisation purposes
+    @param im_path: Image path to resize
+    @param percent_original: Percent of resize
+    @param output_path: Output image path
+    @return: -
+    """
     img = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
 
     print('Original Dimensions : ', img.shape)
@@ -252,17 +305,26 @@ def resize_image(im_path, percent_original, output_path):
 
 # Make mask have 3 channels
 def make_3_channels_mask(im_path, out_path):
+    """
+    Make mask a three channel image
+    @param im_path: Image path
+    @param out_path: Output path
+    @return: -
+    """
     i = img.imread(im_path)
-    new_i = []
-    new_i.append(i)
-    new_i.append(i)
-    new_i.append(i)
+    new_i = [i, i, i]
     new_i = torch.tensor(np.array(new_i))
     tv.io.write_png(new_i, out_path)
 
 
 # Crops the segmentation by its limits
 def crop_segmentation(fp, outp):
+    """
+    Crops the image by its limits
+    @param fp: Image filepath
+    @param outp: Output path of cropped image
+    @return: -
+    """
     imag = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
     imageObject = Image.open(fp)
     positions = np.nonzero(imag)
@@ -278,6 +340,15 @@ def crop_segmentation(fp, outp):
 
 # Makes a collage given the malign image, the malign mask, and the normal image
 def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
+    """
+    Makes the collage
+    @param malign_pth: Malign image path
+    @param malign_mask_pth: Malign mask path
+    @param normal_pth: Normal image path
+    @param width: Width of collage point
+    @param height: height of collage point
+    @return: -
+    """
     # Reads malign base image
     malign = cv2.imread(malign_pth, cv2.IMREAD_UNCHANGED)
 
