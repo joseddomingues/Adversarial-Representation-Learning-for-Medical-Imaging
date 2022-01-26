@@ -20,8 +20,8 @@ val_folder = "../data"
 n_epochs = 200
 batch_size = 1
 experiment_name = "(S)N100B1"
-model_checkpoints = f"{experiment_name}/model_checkpoints"
-optimizer_checkpoints = f"{experiment_name}/optimizer_checkpoints"
+model_checkpoints = f"{experiment_name}_model_checkpoints"
+optimizer_checkpoints = f"{experiment_name}_optimizer_checkpoints"
 l_rate = 0.001
 scheduler = "cosine"
 
