@@ -1,0 +1,10 @@
+generation:
+  n_iters: 2500
+  stages: 16
+  concurrent: 9
+
+segmentation:
+  n_iters: 1000
+
+harmonisation:
+  n_iters: 2000

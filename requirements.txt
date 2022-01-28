@@ -19,3 +19,4 @@ mlflow~=1.22.0
 pandas
 pydicom
 torchsummary
+pyyaml
