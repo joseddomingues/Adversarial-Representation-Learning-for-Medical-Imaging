@@ -14,18 +14,20 @@ class ImageDataset(Dataset):
     def __init__(self, input_dir='train', transform=None):
         self.input_dir = input_dir
         self.transform = transform
-        self.dirlist = os.listdir(self.input_dir)
+        self.dirlist = [elem for elem in os.listdir(self.input_dir) if '_mask' not in elem]
         self.dirlist.sort()
 
     def __len__(self):
-        return len(os.listdir(self.input_dir))
+        return len(self.dirlist)
 
     def __getitem__(self, idx):
         img_id = self.dirlist[idx]
 
-        folder_contents = os.listdir(os.path.join(self.input_dir, img_id))
-        i_path = os.path.join(self.input_dir, img_id, [elem for elem in folder_contents if 'mask' not in elem][0])
-        m_path = os.path.join(self.input_dir, img_id, [elem for elem in folder_contents if 'mask' in elem][0])
+        temp = img_id.split(".")
+        aux_mask_path = '.'.join(temp[:-1]) + "_mask." + temp[-1]
+
+        i_path = os.path.join(self.input_dir, img_id)
+        m_path = os.path.join(self.input_dir, aux_mask_path)
 
         image = cv2.imread(i_path)
         mask = cv2.imread(m_path, 0)
