@@ -2,14 +2,10 @@
 import os
 
 # Check saving paths
-SEGMENTATION_MODELS_PATH = "segmentation_models"
-SEGMENTATION_MLFLOWS_PATH = "segmentation_flows"
+SEGMENTATION_MODELS_PATH = "test_segmentations"
 
 if not os.path.exists(SEGMENTATION_MODELS_PATH):
     os.mkdir(SEGMENTATION_MODELS_PATH)
-
-if not os.path.exists(SEGMENTATION_MLFLOWS_PATH):
-    os.mkdir(SEGMENTATION_MLFLOWS_PATH)
 
 # Change to correct directory
 os.chdir("MedSegmentation/")
@@ -24,6 +20,7 @@ model_checkpoints = f"{experiment_name}_model_checkpoints"
 optimizer_checkpoints = f"{experiment_name}_optimizer_checkpoints"
 l_rate = 0.001
 scheduler = "cosine"
+test_images = "/test_images"
 
 # Run segmentation train
 os.system(
@@ -31,12 +28,15 @@ os.system(
     f"--batch_size {batch_size} --experiment_name {experiment_name} --model_checkpoints {model_checkpoints} "
     f"--optimizer_checkpoints {optimizer_checkpoints} --l_rate {l_rate} --scheduler {scheduler}")
 
+# Segment target folder
+os.system(f"python api.py --model_dir {model_checkpoints} --test_images {test_images} --no_eval")
+
 # Zip model and mlflows runs
-os.system(f"zip -r ../{SEGMENTATION_MLFLOWS_PATH}/{experiment_name} /mlruns")
-os.system(f"zip -r ../{SEGMENTATION_MODELS_PATH}/{model_checkpoints}.zip {model_checkpoints}")
-os.system(f"zip -r ../{SEGMENTATION_MODELS_PATH}/{optimizer_checkpoints}.zip {optimizer_checkpoints}")
+os.system(f"zip -r ../{SEGMENTATION_MODELS_PATH}/{experiment_name} .")
 
 # Zip model and mlflows runs
 os.system("rm -r /mlruns")
-os.system(f"rm -r {model_checkpoints}")
-os.system(f"rm -r {optimizer_checkpoints}")
+os.system(f"rm -r /{model_checkpoints}")
+os.system(f"rm -r /{optimizer_checkpoints}")
+os.system(f"rm -r /runs")
+os.system(f"rm -r /results")

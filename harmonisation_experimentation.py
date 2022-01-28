@@ -12,19 +12,16 @@ opt_map = arg.parse_args()
 
 # Check saving paths
 HARMONISATION_MODELS_PATH = "harmonisation_models"
-HARMONISATION_MLFLOWS_PATH = "harmonisation_flows"
 
 if not os.path.exists(HARMONISATION_MODELS_PATH):
     os.mkdir(HARMONISATION_MODELS_PATH)
-
-if not os.path.exists(HARMONISATION_MLFLOWS_PATH):
-    os.mkdir(HARMONISATION_MLFLOWS_PATH)
 
 # Change to correct directory
 os.chdir("MedSinGAN/")
 
 # Perform collage before using the images
-make_collage(malign_pth='/content/malign.png', malign_mask_pth='/content/malign_mask.png', normal_pth='/content/normal.png', width=1000, height=1000)
+make_collage(malign_pth='/content/malign.png', malign_mask_pth='/content/malign_mask.png',
+             normal_pth='/content/normal.png', width=1000, height=1000)
 
 # Specify the variables
 train_stages = 3
@@ -40,7 +37,12 @@ os.system(f"python main_train.py --train_mode harmonization --gpu 0 --train_stag
           f"--im_min_size {min_size} --lrelu_alpha {lrelu_alpha} --niter {niter} --batch_norm --input_name {base_img} "
           f"--naive_img {naive_img} --experiment_name {experiment_name}")
 
-curr = get_latest_model("/TrainedModels")
+# Get the base image name
+core_name = base_img.split("/")[-1]
+core_name = core_name.split(".")[:-1]
+core_name = ".".join(core_name)
+
+curr = get_latest_model(f"/TrainedModels/{core_name}")
 
 # Fine tune
 if opt_map.fine_tune:
@@ -48,10 +50,13 @@ if opt_map.fine_tune:
         f"python main_train.py --gpu 0 --train_mode harmonization --input_name {base_img} --naive_img {naive_img} "
         f"--fine_tune --model_dir " + str(curr))
 
+# Harmonise a given sample
+os.system(f"python evaluate_model.py --gpu 0 --model_dir {str(curr)} --naive_img {naive_img}")
+
 # Zip model and mlflows runs
-os.system(f"zip -r ../{HARMONISATION_MODELS_PATH}/{experiment_name}.zip {curr}")
-os.system(f"zip -r ../{HARMONISATION_MLFLOWS_PATH}/{experiment_name}.zip /mlruns")
+os.system(f"zip -r ../{HARMONISATION_MODELS_PATH}/{experiment_name}.zip .")
 
 # Delete current trained data
 os.system("rm -r /mlruns")
+os.system("rm -r /runs")
 os.system("rm -r /TrainedModels")
