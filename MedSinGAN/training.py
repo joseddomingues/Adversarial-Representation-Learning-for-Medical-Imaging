@@ -214,7 +214,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         noise = functions.sample_random_noise(depth, reals_shapes, opt)
 
         ############################
-        # (1) Update D network: maximize D(x) + D(G(z))
+        # (1) Update D network: maximize log(D(x)) + log(1-D(G(z)))
         ###########################
         for j in range(opt.Dsteps):
 
@@ -242,7 +242,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             optimizerD.step()
 
         ############################
-        # (2) Update G network: maximize D(G(z))
+        # (2) Update G network: maximize log(D(G(z)))
         ###########################
         # Once again classify the fake after update
         output = netD(fake)
