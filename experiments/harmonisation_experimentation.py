@@ -71,10 +71,10 @@ if __name__ == "__main__":
     core_name = ".".join(core_name)
 
     # Combinations to test
-    stages = [12, 12, 16, 16, 20, 20]
-    min_size = [5, 7, 7, 9, 9, 11]
-    lrelu = [1500, 1500, 1500, 1500, 1500, 1500]
-    niter = [1500, 1500, 1500, 1500, 1500, 1500]
+    stages = [3, 3, 3, 3, 3, 3]
+    min_size = [120, 240, 480, 720, 1080, 1996]
+    lrelu = [0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
+    niter = [2000, 2000, 2000, 3000, 2000, 1500]
 
     for comb in zip(stages, min_size, lrelu, niter):
         do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], lrelu_alpha=comb[2], niter=comb[3],
