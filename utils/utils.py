@@ -117,16 +117,25 @@ def get_measures(image):
     return top, right, bottom, left
 
 
-def get_start_coordinate(image):
+def get_start_coordinate(image, mass_path, laterality_r):
     """
     Get image start coordinate collage point
     @param image: Image to get start coordinate
+    @param mass_path: Mass path
+    @param laterality_r: Laterality of the image (True if R | False if L)
     @return: The starting coordinate
     """
+    imag = cv2.imread(mass_path, cv2.IMREAD_UNCHANGED)
     positions = np.nonzero(image)
-    bottom = positions[0].max()
-    x_bottom = int(np.mean(np.nonzero(image[bottom])))
-    return x_bottom, bottom
+    left = positions[1].min()
+    right = positions[1].max()
+    vertical_co = positions[0][list(positions[1]).index(left)]
+    vertical_co_r = positions[0][list(positions[1]).index(right)]
+
+    if laterality_r:
+        return left, int(vertical_co - imag.shape[1] / 2)
+    else:
+        return right, int(vertical_co_r - imag.shape[1] / 2)
 
 
 def get_correct_value(number):
@@ -158,20 +167,16 @@ def image_to_binary(image, pth):
     return b_image
 
 
-def does_collage_mask(width, height, malign, normal):
+def does_collage_mask(width, height, normal):
     """
     Verifies if this try of collage is possible
     @param width: Width of starting point
     @param height: Height of starting point
-    @param malign: Malign mass
     @param normal: Normal breast
     @return: True if possible | False if not
     """
-    # Crop both the mass, and the normal
-    crop_segmentation(malign, 'malign_aux.png')
-
     normal_image = Image.open(normal)
-    mass_to_paste = Image.open('malign_aux.png')
+    mass_to_paste = Image.open('/content/malign_aux.png')
 
     # Creates collage and save
     back_im = normal_image.copy()
@@ -187,6 +192,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     @param normal_breast_pth: Normal breast path
     @return: -1,-1 if collage is not possible | w,h if its possible
     """
+
     # Operations Threshold
     threshold = 50
 
@@ -216,44 +222,33 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     if malign_mass_width > normal_breast_width or malign_mass_height > normal_breast_height:
         return -1, -1
 
+    # Crop the malign mask
+    crop_segmentation(malign_mask_pth, '/content/malign_aux.png')
+
     # Get bottom base coordinate
-    bottom_coordinate = get_start_coordinate(normal_breast)
+    base_coordinate = get_start_coordinate(normal_breast, '/content/malign_aux.png', R)
 
     # Coordinate collage starts bottom
-    c, d = bottom_coordinate
+    c, d = base_coordinate
 
     if R:
 
-        # Check if mass is all inside image. If not, then go left + threshold
-        if normal_x - c < malign_mass_width:
-            c, d = c - (malign_mass_width - (normal_x - c) + threshold), d
-
-        # Go up the height plus the threshold
-        c, d = c, d - (malign_mass_height + threshold)
-
         # Go up until the masks match. If never match then skip them
-        while d > threshold:
-            if does_collage_mask(c, d, malign_mask_pth, '/content/normal_aux.png'):
+        while c < normal_breast.shape[0]:
+            if does_collage_mask(c, d, '/content/normal_aux.png'):
                 return c, d
 
-            c, d = c, d - threshold
+            c, d = c + threshold, d
 
         return -1, -1
     else:
 
-        # Check if mass is all inside image. If not, then go right + threshold
-        if c < malign_mass_width:
-            c, d = c + (malign_mass_width - c + threshold), d
-
-        # Go up the height plus the threshold
-        c, d = c, d - (malign_mass_height + threshold)
-
         # Go up until the masks match. If never match then skip them
-        while d > threshold:
-            if does_collage_mask(c, d, malign_mask_pth, '/content/normal_aux.png'):
+        while c > 0:
+            if does_collage_mask(c, d, '/content/normal_aux.png'):
                 return c, d
 
-            c, d = c, d - threshold
+            c, d = c - threshold, d
 
         return -1, -1
 
