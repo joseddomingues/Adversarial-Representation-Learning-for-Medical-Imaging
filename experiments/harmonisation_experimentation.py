@@ -4,7 +4,7 @@ from utils.utils import get_latest_model, make_collage
 from argparse import ArgumentParser
 
 
-def do_harmonisation_experiment(train_stages=3, min_size=120, lrelu_alpha=0.3, niter=1000,
+def do_harmonisation_experiment(train_stages=3, min_size=120, max_size=250, lrelu_alpha=0.3, niter=1000,
                                 base_img="../images/normal.png", naive_img="/content/collage.png",
                                 experiment_name="(H)S3MS120L0.3N1000"):
     # Perform collage before using the images
@@ -15,7 +15,8 @@ def do_harmonisation_experiment(train_stages=3, min_size=120, lrelu_alpha=0.3, n
 
     # Run harmonisation train
     os.system(f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {train_stages} "
-              f"--im_min_size {min_size} --lrelu_alpha {lrelu_alpha} --niter {niter} --batch_norm --input_name {base_img} "
+              f"--im_min_size {min_size} --im_max_size {max_size} --lrelu_alpha {lrelu_alpha} "
+              f"--niter {niter} --batch_norm --input_name {base_img} "
               f"--naive_img {naive_img} --experiment_name {experiment_name}")
 
     # Get the base image name
@@ -73,10 +74,11 @@ if __name__ == "__main__":
     # Combinations to test
     stages = [3, 3, 3, 3, 3, 3]
     min_size = [120, 240, 480, 720, 1080, 1996]
+    max_size = [1996, 1996, 1996, 1996, 1996, 1996]
     lrelu = [0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
     niter = [2000, 2000, 2000, 3000, 2000, 1500]
 
-    for comb in zip(stages, min_size, lrelu, niter):
-        do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], lrelu_alpha=comb[2], niter=comb[3],
-                                    base_img=image_name_path, naive_img=naive_im,
-                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}L{comb[2]}N{comb[3]}_B{core_name}")
+    for comb in zip(stages, min_size, max_size, lrelu, niter):
+        do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], max_size=comb[2], lrelu_alpha=comb[3],
+                                    niter=comb[4], base_img=image_name_path, naive_img=naive_im,
+                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}MA{comb[2]}L{comb[3]}N{comb[4]}_B{core_name}")

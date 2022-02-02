@@ -15,7 +15,7 @@ def do_segmentation_experiment(train_folder, val_folder, n_epochs, batch_size, e
     @param batch_size: Batch size
     @param experiment_name: Experiment name
     @param model_checkpoints: Model checkpoints
-    @param optimizer_checkpoints: Optimiser checkpoints
+    @param optimizer_checkpoints: Optimizer checkpoints
     @param l_rate: Learning rate
     @param scheduler: Scheduler type
     @param test_images: Test images if required
