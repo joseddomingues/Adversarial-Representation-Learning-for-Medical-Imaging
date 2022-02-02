@@ -79,7 +79,7 @@ def get_latest_model(base_path):
     latest = 0  # Values will always be bigger than 0
     desired = models[0]
 
-    for id, model in enumerate(models):
+    for _, model in enumerate(models):
         splitted = model.split("_")
         code = splitted[:6]
         code = int(''.join(code))
@@ -176,7 +176,7 @@ def does_collage_mask(width, height, normal):
     @return: True if possible | False if not
     """
     normal_image = Image.open(normal)
-    mass_to_paste = Image.open('/content/malign_aux.png')
+    mass_to_paste = Image.open('malign_aux.png')
 
     # Creates collage and save
     back_im = normal_image.copy()
@@ -200,7 +200,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     malign_mask = cv2.imread(malign_mask_pth, cv2.IMREAD_GRAYSCALE)
     normal_breast = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
     _, normal_x = normal_breast.shape
-    normal_breast = image_to_binary(normal_breast, '/content/normal_aux.png')
+    normal_breast = image_to_binary(normal_breast, 'normal_aux.png')
 
     # Get images laterality
     R, _ = get_image_laterality(normal_breast)
@@ -223,10 +223,10 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
         return -1, -1
 
     # Crop the malign mask
-    crop_segmentation(malign_mask_pth, '/content/malign_aux.png')
+    crop_segmentation(malign_mask_pth, 'malign_aux.png')
 
     # Get bottom base coordinate
-    base_coordinate = get_start_coordinate(normal_breast, '/content/malign_aux.png', R)
+    base_coordinate = get_start_coordinate(normal_breast, 'malign_aux.png', R)
 
     # Coordinate collage starts bottom
     c, d = base_coordinate
@@ -235,7 +235,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
 
         # Go up until the masks match. If never match then skip them
         while c < normal_breast.shape[0]:
-            if does_collage_mask(c, d, '/content/normal_aux.png'):
+            if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
             c, d = c + threshold, d
@@ -245,7 +245,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
 
         # Go up until the masks match. If never match then skip them
         while c > 0:
-            if does_collage_mask(c, d, '/content/normal_aux.png'):
+            if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
             c, d = c - threshold, d
@@ -348,37 +348,37 @@ def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
     malign = cv2.imread(malign_pth, cv2.IMREAD_UNCHANGED)
 
     # Convert mask to 3 channels
-    make_3_channels_mask(malign_mask_pth, '/content/malign_mask3.png')
-    malign_mask = cv2.imread('/content/malign_mask3.png', cv2.IMREAD_UNCHANGED)
+    make_3_channels_mask(malign_mask_pth, 'malign_mask3.png')
+    malign_mask = cv2.imread('malign_mask3.png', cv2.IMREAD_UNCHANGED)
 
     # Grab the image mask from the mass image
     masked = malign.copy()
     masked[malign_mask == 0] = 0
-    cv2.imwrite('/content/segmented_mass.png', masked)
+    cv2.imwrite('segmented_mass.png', masked)
 
     # Crop both the mask, and the masked mass
-    crop_segmentation('/content/segmented_mass.png', '/content/cropped_mass.png')
-    crop_segmentation(malign_mask_pth, '/content/malign_mask_cropped.png')
+    crop_segmentation('segmented_mass.png', 'cropped_mass.png')
+    crop_segmentation(malign_mask_pth, 'malign_mask_cropped.png')
 
     normal_image = Image.open(normal_pth)
-    mass_to_paste = Image.open('/content/cropped_mass.png')
-    mass_mask = Image.open('/content/malign_mask_cropped.png')
+    mass_to_paste = Image.open('cropped_mass.png')
+    mass_mask = Image.open('malign_mask_cropped.png')
 
     # Creates collage and save
     back_im = normal_image.copy()
     back_im.paste(mass_to_paste, (width, height), mass_mask)
-    back_im.save('/content/collage.png', quality=95)
+    back_im.save('collage.png', quality=95)
 
     # Creates collage mask
     collage_mask = Image.new("L", back_im.size, 0)
     collage_mask.paste(mass_mask, (width, height))
-    collage_mask.save('/content/collage_mask.png', quality=95)
+    collage_mask.save('collage_mask.png', quality=95)
 
-    # Deletes unecessary images
+    # Deletes unnecessary images
     try:
-        os.remove('/content/malign_mask3.png')
-        os.remove('/content/segmented_mass.png')
-        os.remove('/content/cropped_mass.png')
-        os.remove('/content/malign_mask_cropped.png')
+        os.remove('malign_mask3.png')
+        os.remove('segmented_mass.png')
+        os.remove('cropped_mass.png')
+        os.remove('malign_mask_cropped.png')
     except OSError as e:
         print(f"FAILED\nFile: {e.filename}\nError: {e.strerror}")
