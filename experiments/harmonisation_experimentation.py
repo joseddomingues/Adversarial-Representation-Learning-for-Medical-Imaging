@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 def do_harmonisation_experiment(train_stages=3, min_size=120, lrelu_alpha=0.3, niter=1000,
                                 base_img="../images/normal.png", naive_img="/content/collage.png",
                                 experiment_name="(H)S3MS120L0.3N1000"):
-
     # Perform collage before using the images
     make_collage(malign_pth='/content/malign.png', malign_mask_pth='/content/malign_mask.png',
                  normal_pth='/content/normal.png', width=1000, height=1000)
@@ -61,8 +60,23 @@ if __name__ == "__main__":
         os.mkdir(HARMONISATION_MODELS_PATH)
 
     # Change to correct directory
-    os.chdir("MedSinGAN/")
+    os.chdir("../MedSinGAN/")
 
-    do_harmonisation_experiment(train_stages=3, min_size=120, lrelu_alpha=0.3, niter=1000,
-                                base_img="../images/normal.png", naive_img="/content/collage.png",
-                                experiment_name="(H)S3MS120L0.3N1000")
+    # Give image path
+    image_name_path = "../images/normal.png"
+    naive_im = "/content/collage.png"
+
+    core_name = image_name_path.split("/")[-1]
+    core_name = core_name.split(".")[:-1]
+    core_name = ".".join(core_name)
+
+    # Combinations to test
+    stages = [12, 12, 16, 16, 20, 20]
+    min_size = [5, 7, 7, 9, 9, 11]
+    lrelu = [1500, 1500, 1500, 1500, 1500, 1500]
+    niter = [1500, 1500, 1500, 1500, 1500, 1500]
+
+    for comb in zip(stages, min_size, lrelu, niter):
+        do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], lrelu_alpha=comb[2], niter=comb[3],
+                                    base_img=image_name_path, naive_img=naive_im,
+                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}L{comb[2]}N{comb[3]}_B{core_name}")
