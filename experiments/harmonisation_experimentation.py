@@ -1,7 +1,7 @@
 # Imports
 import sys
 import os
-from utils.utils import get_latest_model, execute_bash_command
+from utils.utils import get_latest_model, execute_bash_command, get_image_core_name
 from argparse import ArgumentParser
 
 sys.path.append("../utils")
@@ -64,9 +64,7 @@ if __name__ == "__main__":
     image_name_path = "../images/normal.png"
     naive_im = "collage.png"
 
-    core_name = image_name_path.split("/")[-1]
-    core_name = core_name.split(".")[:-1]
-    core_name = ".".join(core_name)
+    core_name = get_image_core_name(image_name_path)
 
     # Combinations to test
     stages = [3, 3, 3, 3, 3, 3]

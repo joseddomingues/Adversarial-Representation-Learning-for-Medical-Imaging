@@ -1,10 +1,20 @@
+# Generation Configurations
 generation:
-  n_iters: 2500
+  niter: 2500
   stages: 16
   concurrent: 9
 
+# Segmentation Configurations
 segmentation:
   n_iters: 1000
+  l_rate: 0.01
+  b_size: 3
 
+# Harmonisation Configurations
 harmonisation:
-  n_iters: 2000
+  niter: 2000
+  stages: 3
+  im_min_size: 120
+  im_max_size: 1080
+  lrelu_alpha: 0.3
+
