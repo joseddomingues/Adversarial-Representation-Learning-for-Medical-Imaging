@@ -91,7 +91,7 @@ def get_latest_model(base_path):
     return os.path.join(base_path, desired)
 
 
-def execute(cmd):
+def execute_bash_command(cmd):
     """
     Executes a specified command and outputs the result of the training progress
     @param cmd: Command to execute
@@ -277,13 +277,13 @@ def remove_4_channel(im_path, output_path):
     @param output_path: Output resulting image
     @return: -
     """
-    img = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
+    imag = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
 
     # Transpose naive image to properly see it
-    tranposed = img.transpose(2, 0, 1)
+    transposed = imag.transpose(2, 0, 1)
 
     # Transpose image again with only the 3 rgb channels to save
-    output = tranposed[0:3].transpose(1, 2, 0)
+    output = transposed[0:3].transpose(1, 2, 0)
 
     # Save new naive image (3-channels)
     cv2.imwrite(output_path, output)
@@ -298,17 +298,17 @@ def resize_image(im_path, percent_original, output_path):
     @param output_path: Output image path
     @return: -
     """
-    img = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
+    imag = cv2.imread(im_path, cv2.IMREAD_UNCHANGED)
 
-    print('Original Dimensions : ', img.shape)
+    print('Original Dimensions : ', imag.shape)
 
     scale_percent = percent_original  # percent of original size
-    width = int(img.shape[1] * scale_percent / 100)
-    height = int(img.shape[0] * scale_percent / 100)
+    width = int(imag.shape[1] * scale_percent / 100)
+    height = int(imag.shape[0] * scale_percent / 100)
     dim = (width, height)
 
     # resize image
-    resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+    resized = cv2.resize(imag, dim, interpolation=cv2.INTER_AREA)
 
     print('Resized Dimensions : ', resized.shape)
     cv2.imwrite(output_path, resized)

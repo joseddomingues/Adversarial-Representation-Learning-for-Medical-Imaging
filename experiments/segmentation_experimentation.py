@@ -1,6 +1,6 @@
 # Imports
 import os
-import subprocess
+from utils.utils import execute_bash_command
 
 # Check saving paths
 SEGMENTATION_MODELS_PATH = "test_segmentations"
@@ -25,43 +25,23 @@ def do_segmentation_experiment(train_folder, val_folder, n_epochs, batch_size, e
 
     # Run segmentation train
     command = f"python train_Unet.py --train_folder {train_folder} --val_folder {val_folder} --n_epochs {n_epochs} --batch_size {batch_size} --experiment_name {experiment_name} --model_checkpoints {model_checkpoints} --optimizer_checkpoints {optimizer_checkpoints} --l_rate {l_rate} --scheduler {scheduler}"
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem training segmentation model! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Segment target folder
     command = f"python api.py --model_dir {model_checkpoints} --test_images {test_images} --no_eval"
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem segmentating test images! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Zip model and mlflows runs
     command = f"zip -r ../{SEGMENTATION_MODELS_PATH}/{experiment_name} ."
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem segmentating test images! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Zip model and mlflows runs
     command = f"rm -r /mlruns /{model_checkpoints} /{optimizer_checkpoints} /runs /results"
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem zipping model files! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
 
 if __name__ == "__main__":

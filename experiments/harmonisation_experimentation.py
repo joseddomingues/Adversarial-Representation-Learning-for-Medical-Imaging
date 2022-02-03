@@ -1,47 +1,44 @@
 # Imports
+import sys
 import os
-from utils.utils import get_latest_model, make_collage
+from utils.utils import get_latest_model, execute_bash_command
 from argparse import ArgumentParser
+
+sys.path.append("../utils")
 
 
 def do_harmonisation_experiment(train_stages=3, min_size=120, max_size=250, lrelu_alpha=0.3, niter=1000,
                                 base_img="../images/normal.png", naive_img="collage.png",
-                                experiment_name="(H)S3MS120L0.3N1000"):
-    # Perform collage before using the images
-    make_collage(malign_pth='malign.png', malign_mask_pth='malign_mask.png',
-                 normal_pth='normal.png', width=1000, height=1000)
-
-    # Specify the variables
-
+                                experiment_name="(H)S3MS120L0.3N1000", core_name="normal"):
     # Run harmonisation train
-    os.system(f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {train_stages} "
-              f"--im_min_size {min_size} --im_max_size {max_size} --lrelu_alpha {lrelu_alpha} "
-              f"--niter {niter} --batch_norm --input_name {base_img} "
-              f"--naive_img {naive_img} --experiment_name {experiment_name}")
-
-    # Get the base image name
-    core_name = base_img.split("/")[-1]
-    core_name = core_name.split(".")[:-1]
-    core_name = ".".join(core_name)
+    command = f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {train_stages} --im_min_size {min_size} --im_max_size {max_size} --lrelu_alpha {lrelu_alpha} --niter {niter} --batch_norm --input_name {base_img} --naive_img {naive_img} --experiment_name {experiment_name}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     curr = get_latest_model(f"/TrainedModels/{core_name}")
 
     # Fine tune
     if opt_map.fine_tune:
-        os.system(
-            f"python main_train.py --gpu 0 --train_mode harmonization --input_name {base_img} --naive_img {naive_img} "
-            f"--fine_tune --model_dir " + str(curr))
+        command = "python main_train.py --gpu 0 --train_mode harmonization --input_name {base_img} --naive_img {naive_img} --fine_tune --model_dir " + str(
+            curr)
+        for path in execute_bash_command(command.split()):
+            print(path, end="")
+        curr = get_latest_model(f"/TrainedModels/{core_name}")
 
     # Harmonise a given sample
-    os.system(f"python evaluate_model.py --gpu 0 --model_dir {str(curr)} --naive_img {naive_img}")
+    command = f"python evaluate_model.py --gpu 0 --model_dir {str(curr)} --naive_img {naive_img}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Zip model and mlflows runs
-    os.system(f"zip -r ../{HARMONISATION_MODELS_PATH}/{experiment_name}.zip .")
+    command = f"zip -r ../{HARMONISATION_MODELS_PATH}/{experiment_name}.zip ."
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Delete current trained data
-    os.system("rm -r /mlruns")
-    os.system("rm -r /runs")
-    os.system("rm -r /TrainedModels")
+    command = "rm -r /mlruns /runs /TrainedModels"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
 
 if __name__ == "__main__":
@@ -81,4 +78,5 @@ if __name__ == "__main__":
     for comb in zip(stages, min_size, max_size, lrelu, niter):
         do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], max_size=comb[2], lrelu_alpha=comb[3],
                                     niter=comb[4], base_img=image_name_path, naive_img=naive_im,
-                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}MA{comb[2]}L{comb[3]}I{comb[4]}_BA({core_name})")
+                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}MA{comb[2]}L{comb[3]}I{comb[4]}_BA({core_name})",
+                                    core_name=core_name)

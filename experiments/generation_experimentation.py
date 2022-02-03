@@ -1,6 +1,6 @@
 # Imports
-import subprocess
 import os
+from utils.utils import execute_bash_command
 
 # Check saving paths
 GENERATORS_MODELS_PATH = "test_generators"
@@ -19,33 +19,18 @@ def do_generation_experiment(input_name, train_stages, train_depth, n_iter, expe
 
     # Run generation train
     command = f"python main_train.py --train_mode generation --input_name {input_name} --train_stages {train_stages} --niter {n_iter} --train_depth {train_depth} --experiment_name {experiment_name} --gpu 0"
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem training generator! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Zip model and mlflows runs
     command = f"zip -r ../{GENERATORS_MODELS_PATH}/{experiment_name}.zip ."
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem zipping files! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Delete current trained data
     command = "rm -r /TrainedModels /mlruns /runs"
-    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    if error:
-        print("Problem removing folders! Terminating...")
-        exit(-1)
-    else:
-        print(output)
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
 
 if __name__ == "__main__":
