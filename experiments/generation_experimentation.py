@@ -1,4 +1,5 @@
 # Imports
+import subprocess
 import os
 
 # Check saving paths
@@ -17,17 +18,34 @@ def do_generation_experiment(input_name, train_stages, train_depth, n_iter, expe
     """
 
     # Run generation train
-    os.system(
-        f"python main_train.py --train_mode generation --input_name {input_name} --train_stages {train_stages} "
-        f"--niter {n_iter} --train_depth {train_depth} --experiment_name {experiment_name} --gpu 0")
+    command = f"python main_train.py --train_mode generation --input_name {input_name} --train_stages {train_stages} --niter {n_iter} --train_depth {train_depth} --experiment_name {experiment_name} --gpu 0"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem training generator! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
     # Zip model and mlflows runs
-    os.system(f"zip -r ../{GENERATORS_MODELS_PATH}/{experiment_name}.zip .")
+    command = f"zip -r ../{GENERATORS_MODELS_PATH}/{experiment_name}.zip ."
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem zipping files! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
     # Delete current trained data
-    os.system("rm -r /TrainedModels")
-    os.system("rm -r /mlruns")
-    os.system("rm -r /runs")
+    command = "rm -r /TrainedModels /mlruns /runs"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem removing folders! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import matplotlib.cm as cm
 import torch
 import torchvision as tv
 from PIL import Image
+import subprocess
 
 
 def extract_harmonized_samples(input_folder="/Users/josedaviddomingues/Desktop/harmonised_samples/16_stages_malign",
@@ -90,7 +91,22 @@ def get_latest_model(base_path):
     return os.path.join(base_path, desired)
 
 
-###################################################################################################
+def execute(cmd):
+    """
+    Executes a specified command and outputs the result of the training progress
+    @param cmd: Command to execute
+    @return: The lines of the execution command
+    """
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
+
+
+############################## HARMONISATION PROCESSING TECHNIQUES ###########################################
 
 def get_image_laterality(image):
     """

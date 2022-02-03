@@ -1,5 +1,6 @@
 # Imports
 import os
+import subprocess
 
 # Check saving paths
 SEGMENTATION_MODELS_PATH = "test_segmentations"
@@ -23,23 +24,44 @@ def do_segmentation_experiment(train_folder, val_folder, n_epochs, batch_size, e
     """
 
     # Run segmentation train
-    os.system(
-        f"python train_Unet.py --train_folder {train_folder} --val_folder {val_folder} --n_epochs {n_epochs} "
-        f"--batch_size {batch_size} --experiment_name {experiment_name} --model_checkpoints {model_checkpoints} "
-        f"--optimizer_checkpoints {optimizer_checkpoints} --l_rate {l_rate} --scheduler {scheduler}")
+    command = f"python train_Unet.py --train_folder {train_folder} --val_folder {val_folder} --n_epochs {n_epochs} --batch_size {batch_size} --experiment_name {experiment_name} --model_checkpoints {model_checkpoints} --optimizer_checkpoints {optimizer_checkpoints} --l_rate {l_rate} --scheduler {scheduler}"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem training segmentation model! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
     # Segment target folder
-    os.system(f"python api.py --model_dir {model_checkpoints} --test_images {test_images} --no_eval")
+    command = f"python api.py --model_dir {model_checkpoints} --test_images {test_images} --no_eval"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem segmentating test images! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
     # Zip model and mlflows runs
-    os.system(f"zip -r ../{SEGMENTATION_MODELS_PATH}/{experiment_name} .")
+    command = f"zip -r ../{SEGMENTATION_MODELS_PATH}/{experiment_name} ."
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem segmentating test images! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
     # Zip model and mlflows runs
-    os.system("rm -r /mlruns")
-    os.system(f"rm -r /{model_checkpoints}")
-    os.system(f"rm -r /{optimizer_checkpoints}")
-    os.system(f"rm -r /runs")
-    os.system(f"rm -r /results")
+    command = f"rm -r /mlruns /{model_checkpoints} /{optimizer_checkpoints} /runs /results"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    if error:
+        print("Problem zipping model files! Terminating...")
+        exit(-1)
+    else:
+        print(output)
 
 
 if __name__ == "__main__":
@@ -57,7 +79,7 @@ if __name__ == "__main__":
     l_rate = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
 
     for comb in zip(iters, b_size, l_rate):
-        exp_name = f"(S)N{comb[0]}B{comb[1]}LR{comb[2]}"
+        exp_name = f"(S)I{comb[0]}B{comb[1]}LR{comb[2]}"
 
         do_segmentation_experiment(train_folder="../data", val_folder="../data", n_epochs=comb[0], batch_size=comb[1],
                                    experiment_name=exp_name, model_checkpoints=f"{exp_name}_model_checkpoints",

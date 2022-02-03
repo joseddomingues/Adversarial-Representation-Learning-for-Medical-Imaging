@@ -5,11 +5,11 @@ from argparse import ArgumentParser
 
 
 def do_harmonisation_experiment(train_stages=3, min_size=120, max_size=250, lrelu_alpha=0.3, niter=1000,
-                                base_img="../images/normal.png", naive_img="/content/collage.png",
+                                base_img="../images/normal.png", naive_img="collage.png",
                                 experiment_name="(H)S3MS120L0.3N1000"):
     # Perform collage before using the images
-    make_collage(malign_pth='/content/malign.png', malign_mask_pth='/content/malign_mask.png',
-                 normal_pth='/content/normal.png', width=1000, height=1000)
+    make_collage(malign_pth='malign.png', malign_mask_pth='malign_mask.png',
+                 normal_pth='normal.png', width=1000, height=1000)
 
     # Specify the variables
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     # Give image path
     image_name_path = "../images/normal.png"
-    naive_im = "/content/collage.png"
+    naive_im = "collage.png"
 
     core_name = image_name_path.split("/")[-1]
     core_name = core_name.split(".")[:-1]
@@ -81,4 +81,4 @@ if __name__ == "__main__":
     for comb in zip(stages, min_size, max_size, lrelu, niter):
         do_harmonisation_experiment(train_stages=comb[0], min_size=comb[1], max_size=comb[2], lrelu_alpha=comb[3],
                                     niter=comb[4], base_img=image_name_path, naive_img=naive_im,
-                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}MA{comb[2]}L{comb[3]}N{comb[4]}_B{core_name}")
+                                    experiment_name=f"(H)S{comb[0]}MS{comb[1]}MA{comb[2]}L{comb[3]}I{comb[4]}_BA({core_name})")

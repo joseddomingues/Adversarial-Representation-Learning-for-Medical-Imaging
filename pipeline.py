@@ -13,3 +13,7 @@ from argparse import ArgumentParser
 ################################################
 # HARMONISATION
 ################################################
+
+
+if __name__ == "__main__":
+    print()
