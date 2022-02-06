@@ -11,10 +11,21 @@ class ImageDataset(Dataset):
     Defining the class to load datasets
     """
 
+    # TODO: Se tivermos a imagem sem a mascara ele causa problemas, so queremos imagens que tenham mascara se nao nao
+
     def __init__(self, input_dir='train', transform=None):
         self.input_dir = input_dir
         self.transform = transform
         self.dirlist = [elem for elem in os.listdir(self.input_dir) if '_mask' not in elem]
+        self.dirlist = [elem for elem in self.dirlist if '.png' in elem]
+
+        result = []
+        for elem in self.dirlist:
+            search = elem.replace(".png", "_mask.png")
+            if os.path.exists(os.path.join(self.input_dir, search)):
+                result.append(elem)
+
+        self.dirlist = result
         self.dirlist.sort()
 
     def __len__(self):

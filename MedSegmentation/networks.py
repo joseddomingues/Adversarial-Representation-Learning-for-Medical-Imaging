@@ -1,121 +1,89 @@
-from __future__ import print_function, division
-
 import torch
 import torch.nn as nn
 import torch.utils.data
 
 
 class U_Net(nn.Module):
-    """
-    UNet - Basic Implementation
-    Paper : https://arxiv.org/abs/1505.04597
-    """
 
-    def __init__(self, in_ch=3, out_ch=1):
+    def __init__(self):
         super(U_Net, self).__init__()
 
-        n1 = 64
-        filters = [n1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
+        # Conv1
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=1, padding=2)
+        self.activ_1 = nn.ReLU()
+        self.conv11 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.activ_11 = nn.ReLU()
+        self.pool1 = nn.MaxPool2d(kernel_size=2, return_indices=True)
 
-        self.Maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.Maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.Maxpool3 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.Maxpool4 = nn.MaxPool2d(kernel_size=2, stride=2)
+        # Conv2
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
+        self.activ_2 = nn.ReLU()
+        self.conv22 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.activ_22 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(kernel_size=2, return_indices=True)
 
-        self.Conv1 = conv_block(in_ch, filters[0])
-        self.Conv2 = conv_block(filters[0], filters[1])
-        self.Conv3 = conv_block(filters[1], filters[2])
-        self.Conv4 = conv_block(filters[2], filters[3])
-        self.Conv5 = conv_block(filters[3], filters[4])
+        # Conv3
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.activ_3 = nn.ReLU()
+        self.conv33 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1)
+        self.activ_33 = nn.ReLU()
 
-        self.Up5 = up_conv(filters[4], filters[3])
-        self.Up_conv5 = conv_block(filters[4], filters[3])
+        # DeConv1
+        self.deconv1 = nn.ConvTranspose2d(in_channels=96, out_channels=32, kernel_size=3, padding=1)
+        self.activ_4 = nn.ReLU()
+        self.unpool1 = nn.MaxUnpool2d(kernel_size=2)
 
-        self.Up4 = up_conv(filters[3], filters[2])
-        self.Up_conv4 = conv_block(filters[3], filters[2])
+        # DeConv 2
+        self.deconv2 = nn.ConvTranspose2d(in_channels=48, out_channels=16, kernel_size=3, padding=1)
+        self.activ_5 = nn.ReLU()
+        self.unpool2 = nn.MaxUnpool2d(kernel_size=2)
 
-        self.Up3 = up_conv(filters[2], filters[1])
-        self.Up_conv3 = conv_block(filters[2], filters[1])
-
-        self.Up2 = up_conv(filters[1], filters[0])
-        self.Up_conv2 = conv_block(filters[1], filters[0])
-
-        self.Conv = nn.Conv2d(filters[0], out_ch, kernel_size=1, stride=1, padding=0)
+        # DeConv 3
+        self.deconv3 = nn.ConvTranspose2d(in_channels=19, out_channels=1, kernel_size=5, padding=2)
+        self.activ_6 = nn.Sigmoid()
 
     def forward(self, x):
-        e1 = self.Conv1(x)
 
-        e2 = self.Maxpool1(e1)
-        e2 = self.Conv2(e2)
+        # First Extraction
+        out_1 = x
+        out = self.conv1(x)
+        out = self.activ_1(out)
+        out = self.conv11(out)
+        out = self.activ_11(out)
+        size1 = out.size()
+        out, indices1 = self.pool1(out)
 
-        e3 = self.Maxpool2(e2)
-        e3 = self.Conv3(e3)
+        # Second extraction
+        out_2 = out
+        out = self.conv2(out)
+        out = self.activ_2(out)
+        out = self.conv22(out)
+        out = self.activ_22(out)
+        size2 = out.size()
+        out, indices2 = self.pool2(out)
 
-        e4 = self.Maxpool3(e3)
-        e4 = self.Conv4(e4)
+        # Third extraction
+        out_3 = out
+        out = self.conv3(out)
+        out = self.activ_3(out)
+        out = self.conv33(out)
+        out = self.activ_33(out)
 
-        e5 = self.Maxpool4(e4)
-        e5 = self.Conv5(e5)
+        # Reconstruct 1
+        out = torch.cat((out, out_3), dim=1)
+        out = self.deconv1(out)
+        out = self.activ_4(out)
+        out = self.unpool1(out, indices2, size2)
 
-        d5 = self.Up5(e5)
-        d5 = torch.cat((e4, d5), dim=1)
+        # Reconstruct 2
+        out = torch.cat((out, out_2), dim=1)
+        out = self.deconv2(out)
+        out = self.activ_5(out)
+        out = self.unpool2(out, indices1, size1)
 
-        d5 = self.Up_conv5(d5)
-
-        d4 = self.Up4(d5)
-        d4 = torch.cat((e3, d4), dim=1)
-        d4 = self.Up_conv4(d4)
-
-        d3 = self.Up3(d4)
-        d3 = torch.cat((e2, d3), dim=1)
-        d3 = self.Up_conv3(d3)
-
-        d2 = self.Up2(d3)
-        d2 = torch.cat((e1, d2), dim=1)
-        d2 = self.Up_conv2(d2)
-
-        out = self.Conv(d2)
-
-        # d1 = self.active(out)
+        # Reconstruct 3
+        out = torch.cat((out, out_1), dim=1)
+        out = self.deconv3(out)
+        out = self.activ_6(out)
 
         return out
-
-
-class up_conv(nn.Module):
-    """
-    Up Convolution Block
-    """
-
-    def __init__(self, in_ch, out_ch):
-        super(up_conv, self).__init__()
-        self.up = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        x = self.up(x)
-        return x
-
-
-class conv_block(nn.Module):
-    """
-    Convolution Block
-    """
-
-    def __init__(self, in_ch, out_ch):
-        super(conv_block, self).__init__()
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True))
-
-    def forward(self, x):
-        x = self.conv(x)
-        return x
