@@ -36,10 +36,10 @@ def get_activation(opt):
 
 def upsample(x, size):
     """
-    Upsamples the given data in a certain scale
+    Upsamples the given pipeline_data_inbreast in a certain scale
     @param x: Data to upsample
     @param size: Scale to upsample in each measure
-    @return: The upsampled data
+    @return: The upsampled pipeline_data_inbreast
     """
 
     x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)

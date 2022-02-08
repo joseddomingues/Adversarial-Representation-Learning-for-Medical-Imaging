@@ -35,7 +35,7 @@ def do_harmonisation_experiment(train_stages=3, min_size=120, max_size=250, lrel
     for path in execute_bash_command(command.split()):
         print(path, end="")
 
-    # Delete current trained data
+    # Delete current trained pipeline_data_inbreast
     command = "rm -r /mlruns /runs /TrainedModels"
     for path in execute_bash_command(command.split()):
         print(path, end="")
