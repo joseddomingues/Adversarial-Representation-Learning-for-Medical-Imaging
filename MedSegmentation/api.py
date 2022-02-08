@@ -14,7 +14,8 @@ arg.add_argument('--model_dir', required=True, help='Checkpoints Model Directory
 arg.add_argument('--test_images', required=True, help='Test Images Directory Path')
 arg.add_argument('--gt_images', help='Ground Truth Images Directory Path')
 arg.add_argument('--output_folder', help='Output Folder To Save Segmentation Masks', default='results')
-arg.add_argument('--eval', dest='eval', help='Flag to evaluate metrics. Required to pass gt_images', action='store_true')
+arg.add_argument('--eval', dest='eval', help='Flag to evaluate metrics. Required to pass gt_images',
+                 action='store_true')
 arg.add_argument('--no_eval', dest='eval', help='Flag to not evaluate metrics', action='store_false')
 arg.set_defaults(eval=False)
 
@@ -85,10 +86,12 @@ def _segment_image(image, model):
 # Go through each image in test images, segment it and save it
 #######################################################
 images = [file for file in os.listdir(opt_map.test_images) if not file.startswith('.')]
+images = [elem for elem in images if '_mask' not in elem]
+
 for image in images:
     curr_image = os.path.join(opt_map.test_images, image)
     result = _segment_image(curr_image, model_unet)
-    name_aux = os.path.join(opt_map.output_folder, image.replace('.png', '_mask.png'))
+    name_aux = os.path.join(opt_map.output_folder, image.replace('.png', '_segmented.png'))
     cv2.imwrite(name_aux, result)
 
 #######################################################

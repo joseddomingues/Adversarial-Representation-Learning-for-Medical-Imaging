@@ -6,9 +6,10 @@ generation:
 
 # Segmentation Configurations
 segmentation:
-  n_iters: 1000
+  niter: 1000
   l_rate: 0.01
   b_size: 3
+  scheduler: "step"
 
 # Harmonisation Configurations
 harmonisation:
