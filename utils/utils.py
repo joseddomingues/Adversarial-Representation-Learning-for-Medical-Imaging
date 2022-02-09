@@ -314,6 +314,21 @@ def resize_image(im_path, percent_original, output_path):
     cv2.imwrite(output_path, resized)
 
 
+def resize_to_dim(img_pth, width, height, out_pth):
+    """
+    Resizes a certain image to the specified resolution
+    @param img_pth: Image to resize
+    @param width: New width
+    @param height: New height
+    @param out_pth: Output path
+    @return: 
+    """
+    base = cv2.imread(img_pth, cv2.IMREAD_UNCHANGED)
+    dim = (width, height)
+    resized = cv2.resize(base, dim)
+    cv2.imwrite(out_pth, resized)
+
+
 # Make mask have 3 channels
 def make_3_channels_mask(im_path, out_path):
     """
