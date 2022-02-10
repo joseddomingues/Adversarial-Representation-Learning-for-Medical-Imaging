@@ -3,6 +3,7 @@ import os
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
+from torch.cuda.amp import GradScaler, autocast
 from mlflow import log_param, log_metric, start_run
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
@@ -133,6 +134,9 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
     @return:
     """
 
+    # Creates scaler for half precision
+    scaler = GradScaler()
+
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
@@ -205,14 +209,15 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             noise_amp.append(1)
         else:
             noise_amp.append(0)
-            z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
-            criterion = nn.MSELoss()
-            rec_loss = criterion(z_reconstruction, real)
+            with autocast():
+                z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+                criterion = nn.MSELoss()
+                rec_loss = criterion(z_reconstruction, real)
+                RMSE = torch.sqrt(rec_loss).detach()
+                _noise_amp = opt.noise_amp_init * RMSE
 
-            RMSE = torch.sqrt(rec_loss).detach()
-            _noise_amp = opt.noise_amp_init * RMSE
-            noise_amp[-1] = _noise_amp
+            noise_amp[-1] = scaler.scale(_noise_amp)
 
             del z_reconstruction
 
@@ -257,26 +262,31 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
             # train with real
             netD.zero_grad()
-            output = netD(real)
-            errD_real = -output.mean()
 
-            # train with fake
-            # generator only trains in the last iteration of Dsteps
-            if j == opt.Dsteps - 1:
-                fake = netG(noise, reals_shapes, noise_amp)
-            else:
-                with torch.no_grad():
+            with autocast():
+                output = netD(real)
+                errD_real = -output.mean()
+
+                # train with fake
+                # generator only trains in the last iteration of Dsteps
+                if j == opt.Dsteps - 1:
                     fake = netG(noise, reals_shapes, noise_amp)
+                else:
+                    with torch.no_grad():
+                        fake = netG(noise, reals_shapes, noise_amp)
 
-            # classify the result from generator
-            output = netD(fake.detach().clone())
-            errD_fake = output.mean()
+                # classify the result from generator
+                output = netD(fake.detach().clone())
+                errD_fake = output.mean()
 
             # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
-            errD_total = errD_real + errD_fake + gradient_penalty
-            errD_total.backward()
-            optimizerD.step()
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, scaler)
+
+            with autocast():
+                errD_total = errD_real + errD_fake + gradient_penalty
+
+            scaler.scale(errD_total).backward()
+            scaler.step(optimizerD)
 
         del noise
 
@@ -284,23 +294,27 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         # (2) Update G network: maximize D(G(z))
         ###########################
         # Once again classify the fake after update
-        output = netD(fake)
-        errG = -output.mean()
+        with autocast():
+            output = netD(fake)
+            errG = -output.mean()
 
-        # having alpha != 0 then generate new output from noise and calculate MSE
-        if alpha != 0:
-            loss = nn.MSELoss()
-            rec = netG(fixed_noise, reals_shapes, noise_amp)
-            rec_loss = alpha * loss(rec, real)
-        else:
-            rec_loss = 0
+            # having alpha != 0 then generate new output from noise and calculate MSE
+            if alpha != 0:
+                loss = nn.MSELoss()
+                rec = netG(fixed_noise, reals_shapes, noise_amp)
+                rec_loss = alpha * loss(rec, real)
+            else:
+                rec_loss = 0
 
         netG.zero_grad()
-        errG_total = errG + rec_loss
-        errG_total.backward()
+
+        with autocast():
+            errG_total = errG + rec_loss
+
+        scaler.scale(errG_total).backward()
 
         for _ in range(opt.Gsteps):
-            optimizerG.step()
+            scaler.step(optimizerG)
 
         ############################
         # (3) Log Metrics
@@ -332,11 +346,12 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         #     generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
         #                      noise_amp, writer, reals, iter + 1)
 
+        scaler.update()
         schedulerD.step()
         schedulerG.step()
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt)
+    functions.save_networks(netG, netD, z_opt, opt, scaler)
     return fixed_noise, noise_amp, netG, netD
 
 
@@ -402,7 +417,9 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
                 else:
                     noise.append(functions.generate_noise([opt.nfc, reals_shapes[d][2], reals_shapes[d][3]],
                                                           device=opt.device).detach())
-            sample = netG(noise, reals_shapes, noise_amp)
+
+            with autocast():
+                sample = netG(noise, reals_shapes, noise_amp)
             functions.save_image('{}/{}_naive_sample.jpg'.format(dir2save, idx), augmented_image)
             functions.save_image('{}/{}_{}_sample.jpg'.format(dir2save, idx, _name), sample.detach())
             augmented_image = imresize_to_shape(augmented_image, sample.shape[2:], opt)
@@ -441,7 +458,9 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
                     else:
                         noise.append(functions.generate_noise([opt.nfc, reals_shapes[d][2], reals_shapes[d][3]],
                                                               device=opt.device).detach())
-                sample = netG(noise, reals_shapes, noise_amp)
+
+                with autocast():
+                    sample = netG(noise, reals_shapes, noise_amp)
                 _naive_img = imresize_to_shape(naive_img_large, sample.shape[2:], opt)
                 images.insert(0, sample.detach())
                 images.insert(0, _naive_img)
