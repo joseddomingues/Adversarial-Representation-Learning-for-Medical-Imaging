@@ -14,13 +14,18 @@ from imresize import imresize_to_shape
 
 
 def train(opt):
+    """
+    Trains the network globally
+    @param opt: configuration map defined in config.py
+    @return: Nothing
+    """
     with start_run(nested=True, run_name=opt.experiment_name):
 
         # Log parameters to mlflow
         log_param("N Iterations", opt.niter)
         log_param("Learning Scale Rate", opt.lr_scale)
-        log_param("N Training Stages", opt.train_stages)
-        log_param("Train Depth", opt.train_depth)
+        log_param("N Stages", opt.train_stages)
+        log_param("N Concurrent Stages", opt.train_depth)
         log_param("Activation Function", opt.activation)
 
         print("Training model with the following parameters:")
@@ -29,12 +34,18 @@ def train(opt):
         print("\t learning rate scaling: {}".format(opt.lr_scale))
         print("\t non-linearity: {}".format(opt.activation))
 
+        # Reads the image
         real = functions.read_image(opt)
+
+        # Adjusts the scales of the image
         real = functions.adjust_scales2image(real, opt)
+
+        # Create the scales reals pyramids
         reals = functions.create_reals_pyramid(real, opt)
         print("Training on image pyramid: {}".format([r.shape for r in reals]))
         print("")
 
+        # Loads the naive image into memory
         if opt.naive_img != "":
             naive_img = functions.read_image_dir(opt.naive_img, opt)
             naive_img_large = imresize_to_shape(naive_img, reals[-1].shape[2:], opt)
@@ -44,6 +55,7 @@ def train(opt):
             naive_img = None
             naive_img_large = None
 
+        # If fine tune assigns image to augment to naive, otherwise use base real
         if opt.fine_tune:
             img_to_augment = naive_img
         else:
@@ -52,6 +64,7 @@ def train(opt):
         if opt.train_mode == "editing":
             opt.noise_scaling = 0.1
 
+        # If fine tune add stages-1 stage blocks to generator
         generator = init_G(opt)
         if opt.fine_tune:
             for _ in range(opt.train_stages - 1):
@@ -72,30 +85,55 @@ def train(opt):
                 pass
             functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
 
+            # If fine tune, load Discriminator, since Generator has stages-1 more blocks
             d_curr = init_D(opt)
             if opt.fine_tune:
                 d_curr.load_state_dict(torch.load('{}/{}/netD.pth'.format(opt.model_dir, opt.train_stages - 1),
                                                   map_location="cuda:{}".format(torch.cuda.current_device())))
+            # Otherwise, load Discriminator and increase Generator
             elif scale_num > 0:
                 d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
                 generator.init_next_stage()
 
+            # Create the Writer to output stats
             writer = SummaryWriter(log_dir=opt.outf)
+
+            # Trains the Network on a specific scale
             fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, img_to_augment,
                                                                            naive_img, naive_img_large, fixed_noise,
                                                                            noise_amp, opt, scale_num, writer)
 
-            torch.save(fixed_noise, '%s/fixed_noise.pth' % (opt.out_))
-            torch.save(generator, '%s/G.pth' % (opt.out_))
-            torch.save(reals, '%s/reals.pth' % (opt.out_))
-            torch.save(noise_amp, '%s/noise_amp.pth' % (opt.out_))
+            # Save stats, delete current discriminator and repeat loop
+            torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
+            torch.save(generator, '%s/G.pth' % opt.out_)
+            torch.save(reals, '%s/reals.pth' % opt.out_)
+            torch.save(noise_amp, '%s/noise_amp.pth' % opt.out_)
             del d_curr
+
+        # Close writer and return
         writer.close()
     return
 
 
 def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_large,
                        fixed_noise, noise_amp, opt, depth, writer):
+    """
+    Trains the network on a specific scale
+    @param netD: Discriminator
+    @param netG: Generator
+    @param reals: Array of the real images with different scales
+    @param img_to_augment:
+    @param naive_img:
+    @param naive_img_large:
+    @param fixed_noise: Noise to add in the iteration
+    @param noise_amp: Noise to add
+    @param opt: configuration map defined in config.py
+    @param depth: Current depth (scale)
+    @param writer: Writer
+    @return:
+    """
+
+    # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
     aug = functions.Augment()
@@ -121,16 +159,20 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         else:
             z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
                                              device=opt.device)
+
+        # Append the noise to the fixed initial noise
         fixed_noise.append(z_opt.detach())
 
     ############################
     # define optimizers, learning rate schedulers, and learning rates for lower stages
     ###########################
+
     # setup optimizers for D
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
 
     # setup optimizers for G
     # remove gradients from stages that are not trained
+    # only trains opt.train_depth stages each time, each with a different learning rate
     for block in netG.body[:-opt.train_depth]:
         for param in block.parameters():
             param.requires_grad = False
@@ -172,6 +214,8 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             _noise_amp = opt.noise_amp_init * RMSE
             noise_amp[-1] = _noise_amp
 
+            del z_reconstruction
+
     # start training
     _iter = tqdm(range(opt.niter))
     for iter in _iter:
@@ -210,32 +254,40 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
         for j in range(opt.Dsteps):
-            netD.zero_grad()
 
+            # train with real
+            netD.zero_grad()
             output = netD(real)
             errD_real = -output.mean()
 
             # train with fake
+            # generator only trains in the last iteration of Dsteps
             if j == opt.Dsteps - 1:
                 fake = netG(noise, reals_shapes, noise_amp)
             else:
                 with torch.no_grad():
                     fake = netG(noise, reals_shapes, noise_amp)
 
+            # classify the result from generator
             output = netD(fake.detach().clone())
             errD_fake = output.mean()
 
+            # calculate penalty, do backward pass and step
             gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
             errD_total = errD_real + errD_fake + gradient_penalty
             errD_total.backward()
             optimizerD.step()
 
+        del noise
+
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
+        # Once again classify the fake after update
         output = netD(fake)
         errG = -output.mean()
 
+        # having alpha != 0 then generate new output from noise and calculate MSE
         if alpha != 0:
             loss = nn.MSELoss()
             rec = netG(fixed_noise, reals_shapes, noise_amp)
@@ -251,40 +303,62 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             optimizerG.step()
 
         ############################
-        # (3) Log Results
-        ###########################
+        # (3) Log Metrics
+        ############################
+        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
+        log_metric('Discriminator Loss', errD_total, step=iter + 1)
+        log_metric('Generator Train Loss', errG.item(), step=iter + 1)
+        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
+        log_metric('Generator Loss', errG_total, step=iter + 1)
+
+        ############################
+        # (4) Log Results
+        ############################
         if iter % 250 == 0 or iter + 1 == opt.niter:
-
-            # Log metrics
-            log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
-            log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
-            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
-            log_metric('Generator Train Loss', errG.item(), step=iter + 1)
-            log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
-
             writer.add_scalar('Loss/train/D/real/{}'.format(j), -errD_real.item(), iter + 1)
             writer.add_scalar('Loss/train/D/fake/{}'.format(j), errD_fake.item(), iter + 1)
             writer.add_scalar('Loss/train/D/gradient_penalty/{}'.format(j), gradient_penalty.item(), iter + 1)
             writer.add_scalar('Loss/train/G/gen', errG.item(), iter + 1)
             writer.add_scalar('Loss/train/G/reconstruction', rec_loss.item(), iter + 1)
+
             functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
-            generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-                             noise_amp, writer, reals, iter + 1)
-        elif opt.fine_tune and iter % 100 == 0:
-            generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-                             noise_amp, writer, reals, iter + 1)
+
+            # generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
+            #                  noise_amp, writer, reals, iter + 1)
+        # elif opt.fine_tune and iter % 100 == 0:
+        #     generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
+        #                      noise_amp, writer, reals, iter + 1)
 
         schedulerD.step()
         schedulerG.step()
-        # break
 
+    # saves the networks
     functions.save_networks(netG, netD, z_opt, opt)
     return fixed_noise, noise_amp, netG, netD
 
 
 def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
                      noise_amp, writer, reals, iter, n=16):
+    """
+    Generate samples to log results
+    @param netG: Generator
+    @param img_to_augment:
+    @param naive_img:
+    @param naive_img_large:
+    @param aug:
+    @param opt: configuration map defined in config.py
+    @param depth: Current depth (scale)
+    @param noise_amp: Noise to ampl
+    @param writer: Writer to log results
+    @param reals: List of reals images with different scales
+    @param iter: Current iteration
+    @param n: Number of samples to generate
+    @return:
+    """
+
     opt.out_ = functions.generate_dir2save(opt)
     dir2save = '{}/harmonized_samples_stage_{}'.format(opt.out_, depth)
     reals_shapes = [r.shape for r in reals]
@@ -393,18 +467,24 @@ def get_mask(mask_file_name, real_img, opt):
 
 
 def init_G(opt):
-    # generator initialization:
+    """
+    Creates the generator, sends it to gpu and apply weights
+    @param opt: Configuration map defined in config.py
+    @return: The generator network
+    """
+
     netG = models.GrowingGenerator(opt).to(opt.device)
     netG.apply(models.weights_init)
-    # print(netG)
-
     return netG
 
 
 def init_D(opt):
-    # discriminator initialization:
+    """
+    Creates the discriminator, sends it to gpu and apply weights
+    @param opt: Configuration map defined in config.py
+    @return: The discriminator network
+    """
+
     netD = models.Discriminator(opt).to(opt.device)
     netD.apply(models.weights_init)
-    # print(netD)
-
     return netD

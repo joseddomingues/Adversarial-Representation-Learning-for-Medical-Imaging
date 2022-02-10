@@ -171,8 +171,8 @@ class GrowingGenerator(nn.Module):
         """
         Forward pass that also applies upsampling
         @param noise: Noise that is the input to the network
-        @param real_shapes: Shappes of the real images to calculate other noises
-        @param noise_amp: The noise ampliation that should be done
+        @param real_shapes: Shapes of the real images to calculate other noises
+        @param noise_amp: The noise amplification that should be done
         @return: The new generated output
         """
 
