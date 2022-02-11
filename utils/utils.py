@@ -108,6 +108,44 @@ def execute_bash_command(cmd):
 
 ############################## HARMONISATION PROCESSING TECHNIQUES ###########################################
 
+
+def crop_images_to_same_size(image_arr):
+    """
+    Crop the images in the dimensions of the biggest crop
+    @param image_arr: Image array with all the images paths
+    @return: -
+    """
+    # Base values to crop
+    # No image has 1.000.000 million pixels so far so its good
+    top = 1000000
+    bottom = -1
+    left = 1000000
+    right = -1
+
+    for elem in image_arr:
+        curr = cv2.imread(elem, cv2.IMREAD_UNCHANGED)
+        positions = np.nonzero(curr)
+        curr_top = positions[0].min()
+        curr_bottom = positions[0].max()
+        curr_left = positions[1].min()
+        curr_right = positions[1].max()
+
+        if curr_top < top:
+            top = curr_top
+        if curr_bottom > bottom:
+            bottom = curr_bottom
+        if curr_left < left:
+            left = curr_left
+        if curr_right > right:
+            right = curr_right
+
+    for elem in image_arr:
+        image_object = Image.open(elem)
+        cropped = image_object.crop((left, top, right, bottom))
+        os.remove(elem)
+        cropped.save(elem)
+
+
 def get_image_laterality(image):
     """
     Get image laterality
