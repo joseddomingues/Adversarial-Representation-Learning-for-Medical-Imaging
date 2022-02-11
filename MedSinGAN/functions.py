@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.cuda.amp import autocast
 from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
@@ -170,6 +171,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     @param fake_data:
     @param LAMBDA:
     @param device:
+    @param scaler: Scaler to improve gradient calculation. Gets faster performance with half precision
     @return:
     """
 
@@ -183,6 +185,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
         interpolates = [torch.autograd.Variable(i, requires_grad=True) for i in interpolates]
 
         disc_interpolates = netD(interpolates)
+
     else:
         alpha = torch.rand(1, 1)
         alpha = alpha.expand(real_data.size())
@@ -199,8 +202,13 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
+
     # LAMBDA = 1
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+
+    del interpolates
+    del gradients
+
     return gradient_penalty
 
 
@@ -246,9 +254,9 @@ def np2torch(x, opt):
         x = x[:, :, None, None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
-    if not (opt.not_cuda):
+    if not opt.not_cuda:
         x = move_to_gpu(x)
-    x = x.type(torch.cuda.FloatTensor) if not (opt.not_cuda) else x.type(torch.FloatTensor)
+    x = x.type(torch.cuda.FloatTensor) if not opt.not_cuda else x.type(torch.FloatTensor)
     x = norm(x)
     return x
 
@@ -280,13 +288,14 @@ def read_image2np(opt):
     return x
 
 
-def save_networks(netG, netDs, z, opt):
+def save_networks(netG, netDs, z, opt, scaler):
     """
 
     @param netG:
     @param netDs:
     @param z:
     @param opt:
+    @param scaler: scaler to save that improves performance
     @return:
     """
 
@@ -297,6 +306,7 @@ def save_networks(netG, netDs, z, opt):
     else:
         torch.save(netDs.state_dict(), '%s/netD.pth' % opt.outf)
     torch.save(z, '%s/z_opt.pth' % opt.outf)
+    torch.save(scaler, '%s/scaler.pth' % opt.outf)
 
 
 def adjust_scales2image(real_, opt):
@@ -355,10 +365,11 @@ def load_trained_model(opt):
         Zs = torch.load('%s/Zs.pth' % dir, map_location="cuda:{}".format(torch.cuda.current_device()))
         reals = torch.load('%s/reals.pth' % dir, map_location="cuda:{}".format(torch.cuda.current_device()))
         NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir, map_location="cuda:{}".format(torch.cuda.current_device()))
+        scaler = torch.load('%s/scaler.pth' % dir, map_location="cuda:{}".format(torch.cuda.current_device()))
     else:
         print('no trained model exists: {}'.format(dir))
 
-    return Gs, Zs, reals, NoiseAmp
+    return Gs, Zs, reals, NoiseAmp, scaler
 
 
 def generate_dir2save(opt):
