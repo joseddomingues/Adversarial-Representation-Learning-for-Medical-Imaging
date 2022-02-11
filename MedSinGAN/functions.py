@@ -163,7 +163,7 @@ def sample_random_noise(depth, reals_shapes, opt):
     return noise
 
 
-def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, scaler):
+def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     """
 
     @param netD:
@@ -184,8 +184,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, scaler):
         interpolates = [i.to(device) for i in interpolates]
         interpolates = [torch.autograd.Variable(i, requires_grad=True) for i in interpolates]
 
-        with autocast():
-            disc_interpolates = netD(interpolates)
+        disc_interpolates = netD(interpolates)
 
     else:
         alpha = torch.rand(1, 1)
@@ -196,27 +195,19 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, scaler):
         interpolates = interpolates.to(device)  # .cuda()
         interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
 
-        with autocast():
-            disc_interpolates = netD(interpolates)
+        disc_interpolates = netD(interpolates)
 
-    disc_interpolates = scaler.scale(disc_interpolates)
     gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
 
-    # Prepares gradients unscaled for grandient penalty calculation
-    inv_scale = 1. / scaler.get_scale()
-    grad_params = [p * inv_scale for p in gradients]
-
     # LAMBDA = 1
-    with autocast():
-        gradient_penalty = ((grad_params.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
 
     del interpolates
     del gradients
-    del grad_params
 
     return gradient_penalty
 

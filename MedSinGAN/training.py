@@ -121,7 +121,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     """
 
     # Creates scaler for half precision
-    scaler = GradScaler()
+    d_scaler = GradScaler()
+    g_scaler = GradScaler()
 
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
@@ -204,7 +205,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             RMSE = torch.sqrt(rec_loss).detach()
             _noise_amp = opt.noise_amp_init * RMSE
 
-        noise_amp[-1] = scaler.scale(_noise_amp)
+        noise_amp[-1] = g_scaler.scale(_noise_amp)
 
         del z_reconstruction
 
@@ -243,13 +244,13 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 errD_fake = output.mean()
 
             # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, scaler)
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, d_scaler)
 
             with autocast():
                 errD_total = errD_real + errD_fake + gradient_penalty
 
-            scaler.scale(errD_total).backward()
-            scaler.step(optimizerD)
+            d_scaler.scale(errD_total).backward()
+            d_scaler.step(optimizerD)
 
         del noise
 
@@ -275,11 +276,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         with autocast():
             errG_total = errG + rec_loss
 
-        scaler.scale(errG_total).backward()
+        g_scaler.scale(errG_total).backward()
 
         # optimizer applied G number of steps
         for _ in range(opt.Gsteps):
-            scaler.step(optimizerG)
+            g_scaler.step(optimizerG)
 
         ############################
         # (3) Log Metrics
@@ -307,7 +308,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
             generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1)
 
-        scaler.update()
+        d_scaler.update()
+        g_scaler.update()
         schedulerD.step()
         schedulerG.step()
 
@@ -321,7 +323,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         # break
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt, scaler)
+    functions.save_networks(netG, netD, z_opt, opt, d_scaler)
     return fixed_noise, noise_amp, netG, netD
 
 
