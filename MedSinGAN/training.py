@@ -250,8 +250,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 errD_total = errD_real + errD_fake + gradient_penalty
 
             d_scaler.scale(errD_total).backward()
-            d_scaler.step(optimizerD)
 
+        d_scaler.step(optimizerD)
         del noise
 
         ############################
@@ -279,8 +279,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         g_scaler.scale(errG_total).backward()
 
         # optimizer applied G number of steps
-        for _ in range(opt.Gsteps):
-            g_scaler.step(optimizerG)
+        #for _ in range(opt.Gsteps):
+        g_scaler.step(optimizerG)
 
         ############################
         # (3) Log Metrics
