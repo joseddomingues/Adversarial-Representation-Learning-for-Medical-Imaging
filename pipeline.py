@@ -40,8 +40,8 @@ def perform_generation(base_folder, target_folder, model_configurations):
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
-        latest_model = get_latest_model(base_path="/TrainedModels/{core_name}/")
-        best_images_path = f"/TrainedModels/{core_name}/{latest_model}/gen_samples_stage_{model_configurations['stages'] - 1}"
+        latest_model = get_latest_model(base_path=f"/TrainedModels/{core_name}")
+        best_images_path = f"{latest_model}/gen_samples_stage_{model_configurations['stages'] - 1}"
         for generated_image in os.listdir(best_images_path):
             shutil.move(os.path.join(best_images_path, generated_image), os.path.join('..', current_folder))
 
@@ -124,6 +124,9 @@ def perform_segmentation(base_folder, model_configurations, target_benign_segmen
 ################################################
 # HARMONISATION
 ################################################
+
+def perform_harmonisation():
+    print("TOD BE DONE....")
 
 
 if __name__ == "__main__":
