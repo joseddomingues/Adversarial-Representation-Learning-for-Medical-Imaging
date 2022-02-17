@@ -236,7 +236,7 @@ def does_collage_mask(width, height, normal):
     back_im = normal_image.copy()
     back_im.paste(mass_to_paste, (width, height), mass_to_paste)
 
-    return list(back_im.getdata()) == list(normal_image.getdata())
+    return (np.array(normal_image) != np.array(back_im)).sum() == 0
 
 
 def is_collage_possible(malign_mask_pth, normal_breast_pth):
@@ -253,7 +253,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     # Read the images
     malign_mask = cv2.imread(malign_mask_pth, cv2.IMREAD_GRAYSCALE)
     normal_breast = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
-    _, normal_x = normal_breast.shape
+    _, normal_w = normal_breast.shape
     normal_breast = image_to_binary(normal_breast, 'normal_aux.png')
 
     # Get images laterality
@@ -288,7 +288,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     if R:
 
         # Go up until the masks match. If never match then skip them
-        while c < normal_breast.shape[0]:
+        while c < normal_w:
             if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
