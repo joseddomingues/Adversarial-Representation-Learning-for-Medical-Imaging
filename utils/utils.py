@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import torch
 import torchvision as tv
-from PIL import Image
+from PIL import Image, ImageChops
 import subprocess
 
 
@@ -196,12 +196,12 @@ def get_correct_value(number):
     """
     Auxiliary function to convert image to binary values
     @param number: Number to check
-    @return: 0 | 1 according to the value
+    @return: 0 | 255 according to the value
     """
     if number == 0:
         return 0
     else:
-        return 1
+        return 255
 
 
 def image_to_binary(image, pth):
@@ -230,13 +230,16 @@ def does_collage_mask(width, height, normal):
     @return: True if possible | False if not
     """
     normal_image = Image.open(normal)
+    normal_image = Image.fromarray(np.array(normal_image)[:, :, 0])
     mass_to_paste = Image.open('malign_aux.png')
 
     # Creates collage and save
     back_im = normal_image.copy()
     back_im.paste(mass_to_paste, (width, height), mass_to_paste)
 
-    return (np.array(normal_image) != np.array(back_im)).sum() == 0
+    if ImageChops.difference(back_im, normal_image).getbbox():
+        return False
+    return True
 
 
 def is_collage_possible(malign_mask_pth, normal_breast_pth):
@@ -253,8 +256,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     # Read the images
     malign_mask = cv2.imread(malign_mask_pth, cv2.IMREAD_GRAYSCALE)
     normal_breast = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
-    _, normal_w = normal_breast.shape
-    normal_breast = image_to_binary(normal_breast, 'normal_aux.png')
+    normal_binary = image_to_binary(normal_breast, 'normal_aux.png')
 
     # Get images laterality
     R, _ = get_image_laterality(normal_breast)
@@ -264,7 +266,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     m_top, m_right, m_bottom, m_left = get_measures(malign_mask)
 
     # Calculate normal breast measures
-    n_top, n_right, n_bottom, n_left = get_measures(normal_breast)
+    n_top, n_right, n_bottom, n_left = get_measures(normal_binary)
 
     # Calculate widths and heights
     malign_mass_width = abs(m_right - m_left)
@@ -288,7 +290,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     if R:
 
         # Go up until the masks match. If never match then skip them
-        while c < normal_w:
+        while c < normal_binary.shape[1]:
             if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
@@ -298,7 +300,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     else:
 
         # Go up until the masks match. If never match then skip them
-        while c > 0:
+        while c >= threshold:
             if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
