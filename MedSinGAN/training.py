@@ -243,10 +243,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 output = netD(fake.detach())
                 errD_fake = output.mean()
 
-            # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, d_scaler)
-
-            with autocast():
+                # calculate penalty, do backward pass and step
+                gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
                 errD_total = errD_real + errD_fake + gradient_penalty
 
             d_scaler.scale(errD_total).backward()
@@ -288,10 +286,10 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
         log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
         log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
-        log_metric('Discriminator Loss', errD_total, step=iter + 1)
+        log_metric('Discriminator Loss', errD_total.item(), step=iter + 1)
         log_metric('Generator Train Loss', errG.item(), step=iter + 1)
         log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
-        log_metric('Generator Loss', errG_total, step=iter + 1)
+        log_metric('Generator Loss', errG_total.item(), step=iter + 1)
 
         ############################
         # (4) Log Results
