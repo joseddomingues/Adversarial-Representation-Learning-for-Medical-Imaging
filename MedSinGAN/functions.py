@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.cuda.amp import autocast
 from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
@@ -306,7 +305,9 @@ def save_networks(netG, netDs, z, opt, scaler):
     else:
         torch.save(netDs.state_dict(), '%s/netD.pth' % opt.outf)
     torch.save(z, '%s/z_opt.pth' % opt.outf)
-    torch.save(scaler, '%s/scaler.pth' % opt.outf)
+
+    if scaler:
+        torch.save(scaler, '%s/scaler.pth' % opt.outf)
 
 
 def adjust_scales2image(real_, opt):
