@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import torch
 import torchvision as tv
-from PIL import Image
+from PIL import Image, ImageChops
 import subprocess
 
 
@@ -120,6 +120,44 @@ def get_image_core_name(image_name):
 
 ############################## HARMONISATION PROCESSING TECHNIQUES ###########################################
 
+
+def crop_images_to_same_size(image_arr):
+    """
+    Crop the images in the dimensions of the biggest crop
+    @param image_arr: Image array with all the images paths
+    @return: -
+    """
+    # Base values to crop
+    # No image has 1.000.000 million pixels so far so its good
+    top = 1000000
+    bottom = -1
+    left = 1000000
+    right = -1
+
+    for elem in image_arr:
+        curr = cv2.imread(elem, cv2.IMREAD_UNCHANGED)
+        positions = np.nonzero(curr)
+        curr_top = positions[0].min()
+        curr_bottom = positions[0].max()
+        curr_left = positions[1].min()
+        curr_right = positions[1].max()
+
+        if curr_top < top:
+            top = curr_top
+        if curr_bottom > bottom:
+            bottom = curr_bottom
+        if curr_left < left:
+            left = curr_left
+        if curr_right > right:
+            right = curr_right
+
+    for elem in image_arr:
+        image_object = Image.open(elem)
+        cropped = image_object.crop((left, top, right, bottom))
+        os.remove(elem)
+        cropped.save(elem)
+
+
 def get_image_laterality(image):
     """
     Get image laterality
@@ -170,12 +208,12 @@ def get_correct_value(number):
     """
     Auxiliary function to convert image to binary values
     @param number: Number to check
-    @return: 0 | 1 according to the value
+    @return: 0 | 255 according to the value
     """
     if number == 0:
         return 0
     else:
-        return 1
+        return 255
 
 
 def image_to_binary(image, pth):
@@ -204,13 +242,16 @@ def does_collage_mask(width, height, normal):
     @return: True if possible | False if not
     """
     normal_image = Image.open(normal)
+    normal_image = Image.fromarray(np.array(normal_image)[:, :, 0])
     mass_to_paste = Image.open('malign_aux.png')
 
     # Creates collage and save
     back_im = normal_image.copy()
     back_im.paste(mass_to_paste, (width, height), mass_to_paste)
 
-    return list(back_im.getdata()) == list(normal_image.getdata())
+    if ImageChops.difference(back_im, normal_image).getbbox():
+        return False
+    return True
 
 
 def is_collage_possible(malign_mask_pth, normal_breast_pth):
@@ -227,8 +268,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     # Read the images
     malign_mask = cv2.imread(malign_mask_pth, cv2.IMREAD_GRAYSCALE)
     normal_breast = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
-    _, normal_x = normal_breast.shape
-    normal_breast = image_to_binary(normal_breast, 'normal_aux.png')
+    normal_binary = image_to_binary(normal_breast, 'normal_aux.png')
 
     # Get images laterality
     R, _ = get_image_laterality(normal_breast)
@@ -238,7 +278,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     m_top, m_right, m_bottom, m_left = get_measures(malign_mask)
 
     # Calculate normal breast measures
-    n_top, n_right, n_bottom, n_left = get_measures(normal_breast)
+    n_top, n_right, n_bottom, n_left = get_measures(normal_binary)
 
     # Calculate widths and heights
     malign_mass_width = abs(m_right - m_left)
@@ -262,7 +302,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     if R:
 
         # Go up until the masks match. If never match then skip them
-        while c < normal_breast.shape[0]:
+        while c < normal_binary.shape[1]:
             if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
@@ -272,7 +312,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     else:
 
         # Go up until the masks match. If never match then skip them
-        while c > 0:
+        while c >= threshold:
             if does_collage_mask(c, d, 'normal_aux.png'):
                 return c, d
 
@@ -324,6 +364,21 @@ def resize_image(im_path, percent_original, output_path):
 
     print('Resized Dimensions : ', resized.shape)
     cv2.imwrite(output_path, resized)
+
+
+def resize_to_dim(img_pth, width, height, out_pth):
+    """
+    Resizes a certain image to the specified resolution
+    @param img_pth: Image to resize
+    @param width: New width
+    @param height: New height
+    @param out_pth: Output path
+    @return: 
+    """
+    base = cv2.imread(img_pth, cv2.IMREAD_UNCHANGED)
+    dim = (width, height)
+    resized = cv2.resize(base, dim)
+    cv2.imwrite(out_pth, resized)
 
 
 # Make mask have 3 channels

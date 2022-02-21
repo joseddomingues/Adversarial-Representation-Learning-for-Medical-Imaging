@@ -25,8 +25,8 @@ def train(opt):
         # Log parameters to mlflow
         log_param("N Iterations", opt.niter)
         log_param("Learning Scale Rate", opt.lr_scale)
-        log_param("N Training Stages", opt.train_stages)
-        log_param("Train Depth", opt.train_depth)
+        log_param("N Stages", opt.train_stages)
+        log_param("N Concurrent Stages", opt.train_depth)
         log_param("Activation Function", opt.activation)
 
         print("Training model with the following parameters:")
@@ -203,6 +203,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         _noise_amp = opt.noise_amp_init * RMSE
         noise_amp[-1] = _noise_amp
 
+        del z_reconstruction
+
     # start training
     _iter = tqdm(range(opt.niter))
     for iter in _iter:
@@ -241,6 +243,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             errD_total.backward()
             optimizerD.step()
 
+        del noise
+
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
@@ -266,21 +270,25 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             optimizerG.step()
 
         ############################
-        # (3) Log Results
-        ###########################
+        # (3) Log Metrics
+        ############################
+        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
+        log_metric('Discriminator Loss', errD_total.item(), step=iter + 1)
+        log_metric('Generator Train Loss', errG.item(), step=iter + 1)
+        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
+        log_metric('Generator Loss', errG_total.item(), step=iter + 1)
+
+        ############################
+        # (4) Log Results
+        ############################
         if iter % 250 == 0 or iter + 1 == opt.niter:
             writer.add_scalar('Loss/train/D/real/{}'.format(j), -errD_real.item(), iter + 1)
             writer.add_scalar('Loss/train/D/fake/{}'.format(j), errD_fake.item(), iter + 1)
             writer.add_scalar('Loss/train/D/gradient_penalty/{}'.format(j), gradient_penalty.item(), iter + 1)
             writer.add_scalar('Loss/train/G/gen', errG.item(), iter + 1)
             writer.add_scalar('Loss/train/G/reconstruction', rec_loss.item(), iter + 1)
-
-            # Log metrics
-            log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
-            log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
-            log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
-            log_metric('Generator Train Loss', errG.item(), step=iter + 1)
-            log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
 
         if iter % 500 == 0 or iter + 1 == opt.niter:
             functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
@@ -300,7 +308,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         # break
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt)
+    functions.save_networks(netG, netD, z_opt, opt, None)
     return fixed_noise, noise_amp, netG, netD
 
 
@@ -332,6 +340,9 @@ def generate_samples(netG, opt, depth, noise_amp, writer, reals, iter, n=25):
             sample = netG(noise, reals_shapes, noise_amp)
             all_images.append(sample)
             functions.save_image('{}/gen_sample_{}.jpg'.format(dir2save, idx), sample.detach())
+
+        del noise
+        del sample
 
         all_images = torch.cat(all_images, 0)
         all_images[0] = reals[depth].squeeze()

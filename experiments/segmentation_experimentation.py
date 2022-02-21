@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for comb in zip(iters, b_size, l_rate):
         exp_name = f"(S)I{comb[0]}B{comb[1]}LR{comb[2]}"
 
-        do_segmentation_experiment(train_folder="../data", val_folder="../data", n_epochs=comb[0], batch_size=comb[1],
+        do_segmentation_experiment(train_folder="../pipeline_data_inbreast", val_folder="../pipeline_data_inbreast", n_epochs=comb[0], batch_size=comb[1],
                                    experiment_name=exp_name, model_checkpoints=f"{exp_name}_model_checkpoints",
                                    optimizer_checkpoints=f"{exp_name}_optimizer_checkpoints", l_rate=comb[2],
                                    scheduler="cosine", test_images="/test_images")

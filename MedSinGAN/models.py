@@ -36,10 +36,10 @@ def get_activation(opt):
 
 def upsample(x, size):
     """
-    Upsamples the given data in a certain scale
+    Upsamples the given pipeline_data_inbreast in a certain scale
     @param x: Data to upsample
     @param size: Scale to upsample in each measure
-    @return: The upsampled data
+    @return: The upsampled pipeline_data_inbreast
     """
 
     x_up = torch.nn.functional.interpolate(x, size=size, mode='bicubic', align_corners=True)
@@ -171,8 +171,8 @@ class GrowingGenerator(nn.Module):
         """
         Forward pass that also applies upsampling
         @param noise: Noise that is the input to the network
-        @param real_shapes: Shappes of the real images to calculate other noises
-        @param noise_amp: The noise ampliation that should be done
+        @param real_shapes: Shapes of the real images to calculate other noises
+        @param noise_amp: The noise amplification that should be done
         @return: The new generated output
         """
 

@@ -27,7 +27,7 @@ def do_generation_experiment(input_name, train_stages, train_depth, n_iter, expe
     for path in execute_bash_command(command.split()):
         print(path, end="")
 
-    # Delete current trained data
+    # Delete current trained pipeline_data_inbreast
     command = "rm -r /TrainedModels /mlruns /runs"
     for path in execute_bash_command(command.split()):
         print(path, end="")
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     os.chdir("../MedSinGAN/")
 
     # Give image path
-    image_name_path = "../images/benign.png"
+    image_name_path = "../pipeline_data_inbreast/benign/benign.png"
 
     core_name = get_image_core_name(image_name_path)
 

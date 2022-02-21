@@ -9,7 +9,7 @@ from piqa import SSIM, MS_SSIM, LPIPS
 
 
 class GenerationEvaluator:
-    def __init__(self, input_image, generated):
+    def __init__(self, input_image, generated=None):
         self.original_image = input_image
         self.generated_images = generated
 
@@ -22,13 +22,14 @@ class GenerationEvaluator:
             transforms.ToTensor()
         ])
 
-        output_images = {}
-        for im in os.listdir(self.generated_images):
-            output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
-            output_images[im] = output_images[im].reshape(
-                (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
+        if generated:
+            output_images = {}
+            for im in os.listdir(self.generated_images):
+                output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
+                output_images[im] = output_images[im].reshape(
+                    (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
 
-        self.generated_images = output_images
+            self.generated_images = output_images
 
         # 2. Convert Input Image to RGB if not
         self.original_image = transform(Image.open(self.original_image))
@@ -44,6 +45,10 @@ class GenerationEvaluator:
         # Initialize criterion
         criterion = LPIPS()
 
+        # If not valid folder
+        if not self.generated_images:
+            return -1
+
         # Calculate average
         average = 0
 
@@ -54,6 +59,31 @@ class GenerationEvaluator:
 
         return (average / len(self.generated_images.keys())).item()
 
+    def run_lpips_to_image(self, generated_image):
+        """
+        Run LPIPS test for the given generated image
+        @param generated_image: Generated image to lpips
+        @return: The average LPIPS value for the generated image
+        """
+
+        # If image doesnt exists
+        if not os.path.exists(generated_image):
+            return -1
+
+        # Initialize criterion
+        criterion = LPIPS()
+
+        # Transformation for generated
+        transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
+        gen = transform(Image.open(generated_image))
+        gen = gen.reshape(
+            (1, gen.shape[0], gen.shape[1], gen.shape[2]))
+
+        return criterion(self.original_image, gen)
+
     def run_mssim(self):
         """
         Run SSIM and MS-SSIM test for the generation
@@ -62,6 +92,10 @@ class GenerationEvaluator:
 
         ssim = SSIM()
         msssim = MS_SSIM()
+
+        # If not valid folder
+        if not self.generated_images:
+            return -1
 
         # Calculate average
         average_ssim = 0
@@ -78,11 +112,40 @@ class GenerationEvaluator:
         return (average_ssim / len(self.generated_images.keys())).item(), \
                (average_mssim / len(self.generated_images.keys())).item()
 
+    def run_mssim_to_image(self, generated_image):
+        """
+        Run SSIM and MS-SSIM test for the given generated image
+        @param generated_image: Generated image to mssim
+        @return: SSIM, MS-SSIM
+        """
+
+        # If image doesnt exists
+        if not os.path.exists(generated_image):
+            return -1
+
+        ssim = SSIM()
+        msssim = MS_SSIM()
+
+        # Transformation for generated
+        transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
+        gen = transform(Image.open(generated_image))
+        gen = gen.reshape(
+            (1, gen.shape[0], gen.shape[1], gen.shape[2]))
+
+        return ssim(self.original_image, gen), msssim(self.original_image, gen)
+
     def run_fid(self):
         """
         Run the FID test for the generated images
         @return: FID value
         """
+
+        # If not valid folder
+        if not self.generated_images:
+            return -1
 
         # Generate folder with N copies of the original image
         folder_name = 'original_images_folder'
