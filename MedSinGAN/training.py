@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.cuda.amp import GradScaler, autocast
 from mlflow import log_param, log_metric, start_run
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
@@ -119,6 +120,9 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     @return: fixed_noise, noise_amp, netG, netD
     """
 
+    # Initiate scaler
+    scaler = GradScaler()
+
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
@@ -192,17 +196,19 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     else:
         # if not the first stage append 0 and then generate result using G
         noise_amp.append(0)
-        z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
-        # define criterion and calculate the loss
-        criterion = nn.MSELoss()
-        rec_loss = criterion(z_reconstruction, real)
+        with autocast():
+            z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
-        # calculate RMSE, multiply byt the initial amp and change the last one to it
-        RMSE = torch.sqrt(rec_loss).detach()
-        _noise_amp = opt.noise_amp_init * RMSE
+            # define criterion and calculate the loss
+            criterion = nn.MSELoss()
+            rec_loss = criterion(z_reconstruction, real)
+
+            # calculate RMSE, multiply byt the initial amp and change the last one to it
+            RMSE = torch.sqrt(rec_loss).detach()
+            _noise_amp = opt.noise_amp_init * RMSE
+
         noise_amp[-1] = _noise_amp
-
         del z_reconstruction
 
     # start training
@@ -222,52 +228,61 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
             # train with real
             netD.zero_grad()
-            output = netD(real)
-            errD_real = -output.mean()
 
-            # train with fake
-            # generator only trains in the last iteration of Dsteps
-            if j == opt.Dsteps - 1:
-                fake = netG(noise, reals_shapes, noise_amp)
-            else:
-                with torch.no_grad():
+            with autocast():
+                output = netD(real)
+                errD_real = -output.mean()
+
+                # train with fake
+                # generator only trains in the last iteration of Dsteps
+                if j == opt.Dsteps - 1:
                     fake = netG(noise, reals_shapes, noise_amp)
+                else:
+                    with torch.no_grad():
+                        fake = netG(noise, reals_shapes, noise_amp)
 
-            # classify the result from generator
-            output = netD(fake.detach())
-            errD_fake = output.mean()
+                # classify the result from generator
+                output = netD(fake.detach())
+                errD_fake = output.mean()
 
-            # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
-            errD_total = errD_real + errD_fake + gradient_penalty
-            errD_total.backward()
-            optimizerD.step()
+                # calculate penalty, do backward pass and step
+                gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
+                errD_total = errD_real + errD_fake + gradient_penalty
 
+            scaler.scale(errD_total).backward()
+
+        scaler.step(optimizerD)
+        schedulerD.step()
         del noise
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
-        # Once again classify the fake after update
-        output = netD(fake)
-        errG = -output.mean()
 
-        # having alpha != 0 then generate new output from noise and calculate MSE
-        if alpha != 0:
-            loss = nn.MSELoss()
-            rec = netG(fixed_noise, reals_shapes, noise_amp)
-            rec_loss = alpha * loss(rec, real)
-        else:
-            rec_loss = 0
+        with autocast():
+            # Once again classify the fake after update
+            output = netD(fake)
+            errG = -output.mean()
+
+            # having alpha != 0 then generate new output from noise and calculate MSE
+            if alpha != 0:
+                loss = nn.MSELoss()
+                rec = netG(fixed_noise, reals_shapes, noise_amp)
+                rec_loss = alpha * loss(rec, real)
+            else:
+                rec_loss = 0
 
         # zero grads and apply backward pass
         netG.zero_grad()
-        errG_total = errG + rec_loss
-        errG_total.backward()
 
+        with autocast():
+            errG_total = errG + rec_loss
+
+        scaler.scale(errG_total).backward()
         # optimizer applied G number of steps
-        for _ in range(opt.Gsteps):
-            optimizerG.step()
+        # for _ in range(opt.Gsteps):
+        scaler.step(optimizerG)
+        schedulerG.step()
 
         ############################
         # (3) Log Metrics
@@ -295,8 +310,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
             generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1)
 
-        schedulerD.step()
-        schedulerG.step()
+        scaler.update()
 
     if depth + 1 == len(reals):
         evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
