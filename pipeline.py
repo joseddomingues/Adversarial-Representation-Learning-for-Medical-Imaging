@@ -145,20 +145,20 @@ def perform_collage(base_folder, base_images):
     @return: -
     """
 
-    ids = 0
-
     for image_folder in os.listdir(base_images):
 
+        ids = 0
         normal_images = os.listdir(os.path.join(base_images, image_folder))
         for i in range(len(normal_images)):
             base_image = normal_images[i]
 
             # Create respective folder for current collage
-            curr_collage_folder = os.path.join(MAIN_COLLAGE_FOLDER, str(i))
+            curr_collage_folder = os.path.join(MAIN_COLLAGE_FOLDER, f"{image_folder.split('.')[:-1]}_{i}")
             os.mkdir(curr_collage_folder)
 
             # Copy base image to respective folder
-            shutil.copy(os.path.join(base_images, base_image), os.path.join(curr_collage_folder, "base_image.png"))
+            shutil.copy(os.path.join(base_images, image_folder, base_image),
+                        os.path.join(curr_collage_folder, "base_image.png"))
 
             # Perform collage with benign images
             benign_images = [os.path.join(base_folder, DATA_FOLDER_BENIGN, b_image) for b_image in
@@ -167,11 +167,11 @@ def perform_collage(base_folder, base_images):
 
             for benign_image in benign_images:
                 w, h = is_collage_possible(benign_image.replace(".png", "_mask.png"),
-                                           os.path.join(base_images, base_image))
+                                           os.path.join(base_images, image_folder, base_image))
 
                 if w != -1 and h != -1:
                     make_collage(benign_image, benign_image.replace(".png", "_mask.png"),
-                                 os.path.join(base_images, base_image), w, h)
+                                 os.path.join(base_images, image_folder, base_image), w, h)
 
                     # Make the collage mask 3-channel
                     make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
@@ -193,11 +193,11 @@ def perform_collage(base_folder, base_images):
 
             for malign_image in malign_images:
                 w, h = is_collage_possible(malign_image.replace(".png", "_mask.png"),
-                                           os.path.join(base_images, base_image))
+                                           os.path.join(base_images, image_folder, base_image))
 
                 if w != -1 and h != -1:
                     make_collage(malign_image, malign_image.replace(".png", "_mask.png"),
-                                 os.path.join(base_images, base_image), w, h)
+                                 os.path.join(base_images, image_folder, base_image), w, h)
 
                     # Make the collage mask 3-channel
                     make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
