@@ -212,7 +212,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             RMSE = torch.sqrt(rec_loss).detach()
             _noise_amp = opt.noise_amp_init * RMSE
 
-        noise_amp[-1] = scaler.scale(_noise_amp)
+        noise_amp[-1] = _noise_amp
         del z_reconstruction
 
     # start training
