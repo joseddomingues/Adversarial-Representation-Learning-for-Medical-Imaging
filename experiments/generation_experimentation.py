@@ -1,6 +1,6 @@
 # Imports
 import os
-from utils.utils import execute_bash_command
+from utils.utils import execute_bash_command, get_image_core_name
 
 # Check saving paths
 GENERATORS_MODELS_PATH = "test_generators"
@@ -45,9 +45,7 @@ if __name__ == "__main__":
     # Give image path
     image_name_path = "../pipeline_data_inbreast/benign/benign.png"
 
-    core_name = image_name_path.split("/")[-1]
-    core_name = core_name.split(".")[:-1]
-    core_name = ".".join(core_name)
+    core_name = get_image_core_name(image_name_path)
 
     # Combinations to test
     stages = [12, 12, 16, 16, 20, 20]

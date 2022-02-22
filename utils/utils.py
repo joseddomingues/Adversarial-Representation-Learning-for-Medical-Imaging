@@ -106,6 +106,18 @@ def execute_bash_command(cmd):
         raise subprocess.CalledProcessError(return_code, cmd)
 
 
+def get_image_core_name(image_name):
+    """
+    Obtains the image core name. Everything before the .png|.jpg etc and after /
+    @param image_name: Image name
+    @return: The image core name
+    """
+    core_name = image_name.split("/")[-1]
+    core_name = core_name.split(".")[:-1]
+    core_name = ".".join(core_name)
+    return core_name
+
+
 ############################## HARMONISATION PROCESSING TECHNIQUES ###########################################
 
 
