@@ -153,7 +153,7 @@ def perform_collage(base_folder, base_images):
             base_image = normal_images[i]
 
             # Create respective folder for current collage
-            curr_collage_folder = os.path.join(MAIN_COLLAGE_FOLDER, f"{image_folder.split('.')[:-1]}_{i}")
+            curr_collage_folder = os.path.join(MAIN_COLLAGE_FOLDER, f"{image_folder}_{i}")
             os.mkdir(curr_collage_folder)
 
             # Copy base image to respective folder
@@ -318,4 +318,4 @@ if __name__ == "__main__":
         os.mkdir(MAIN_HARMONISATION_FOLDER)
 
     # Performs harmonisation
-    perform_harmonisation(opt_map.data_folder, configurations['harmonisation'])
+    perform_harmonisation(configurations['harmonisation'])
