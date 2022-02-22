@@ -53,6 +53,9 @@ def train(opt):
         fixed_noise = []
         noise_amp = []
 
+        # Metrics step
+        metrics_step = 0
+
         # For each scale of the number os scales will be used
         # stop_scale - Defined according to adjusting image scales
         for scale_num in range(opt.stop_scale + 1):
@@ -81,7 +84,7 @@ def train(opt):
             # Trains the Network on a specific scale
             fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, fixed_noise,
                                                                            noise_amp,
-                                                                           opt, scale_num, writer)
+                                                                           opt, scale_num, writer, metrics_step)
 
             # Save stats, delete current discriminator and repeat loop
             torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
@@ -106,7 +109,7 @@ def train(opt):
 # writer - configuration map defined in config.py
 
 
-def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, writer):
+def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, writer, metrics_step):
     """
     Trains the network on a specific scale
     @param netD: Discriminator
@@ -117,6 +120,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     @param opt: configuration map defined in config.py
     @param depth: Current depth (scale)
     @param writer: Writer
+    @param metrics_step: Metrics step to log in mlflow
     @return: fixed_noise, noise_amp, netG, netD
     """
 
@@ -208,7 +212,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             RMSE = torch.sqrt(rec_loss).detach()
             _noise_amp = opt.noise_amp_init * RMSE
 
-        noise_amp[-1] = _noise_amp
+        noise_amp[-1] = scaler.scale(_noise_amp)
         del z_reconstruction
 
     # start training
@@ -287,13 +291,14 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ############################
         # (3) Log Metrics
         ############################
-        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
-        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
-        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
-        log_metric('Discriminator Loss', errD_total.item(), step=iter + 1)
-        log_metric('Generator Train Loss', errG.item(), step=iter + 1)
-        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
-        log_metric('Generator Loss', errG_total.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=metrics_step)
+        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=metrics_step)
+        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=metrics_step)
+        log_metric('Discriminator Loss', errD_total.item(), step=metrics_step)
+        log_metric('Generator Train Loss', errG.item(), step=metrics_step)
+        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=metrics_step)
+        log_metric('Generator Loss', errG_total.item(), step=metrics_step)
+        metrics_step += 1
 
         ############################
         # (4) Log Results
@@ -322,11 +327,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         # break
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt, None)
+    functions.save_networks(netG, netD, z_opt, opt, scaler)
     return fixed_noise, noise_amp, netG, netD
 
 
-def generate_samples(netG, opt, depth, noise_amp, writer, reals, iter, n=25):
+def generate_samples(netG, opt, depth, noise_amp, writer, reals, iter, n=10):
     """
     Generate samples to log results
     @param netG: Generator

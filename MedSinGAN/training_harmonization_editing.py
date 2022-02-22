@@ -73,8 +73,12 @@ def train(opt):
             generator.load_state_dict(torch.load('{}/{}/netG.pth'.format(opt.model_dir, opt.train_stages - 1),
                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
 
+        # Fixed noise and noise ampliation to use
         fixed_noise = []
         noise_amp = []
+
+        # Metrics step
+        metrics_step = 0
 
         for scale_num in range(opt.start_scale, opt.train_stages):
             opt.out_ = functions.generate_dir2save(opt)
@@ -102,7 +106,8 @@ def train(opt):
             # Trains the Network on a specific scale
             fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, img_to_augment,
                                                                            naive_img, naive_img_large, fixed_noise,
-                                                                           noise_amp, opt, scale_num, writer)
+                                                                           noise_amp, opt, scale_num, writer,
+                                                                           metrics_step)
 
             # Save stats, delete current discriminator and repeat loop
             torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
@@ -117,7 +122,7 @@ def train(opt):
 
 
 def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_large,
-                       fixed_noise, noise_amp, opt, depth, writer):
+                       fixed_noise, noise_amp, opt, depth, writer, metrics_step):
     """
     Trains the network on a specific scale
     @param netD: Discriminator
@@ -131,12 +136,12 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
     @param opt: configuration map defined in config.py
     @param depth: Current depth (scale)
     @param writer: Writer
+    @param metrics_step: Metrics step to log in mlflow
     @return:
     """
 
     # Creates scaler for half precision
-    d_scaler = GradScaler()
-    g_scaler = GradScaler()
+    scaler = GradScaler()
 
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
@@ -213,13 +218,16 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
             with autocast():
                 z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+
+                # define criterion and calculate the loss
                 criterion = nn.MSELoss()
                 rec_loss = criterion(z_reconstruction, real)
+
+                # calculate RMSE, multiply byt the initial amp and change the last one to it
                 RMSE = torch.sqrt(rec_loss).detach()
                 _noise_amp = opt.noise_amp_init * RMSE
 
-            noise_amp[-1] = g_scaler.scale(_noise_amp)
-
+            noise_amp[-1] = scaler.scale(_noise_amp)
             del z_reconstruction
 
     # start training
@@ -284,16 +292,18 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
                 errD_total = errD_real + errD_fake + gradient_penalty
 
-            d_scaler.scale(errD_total).backward()
+            scaler.scale(errD_total).backward()
 
-        d_scaler.step(optimizerD)
+        scaler.step(optimizerD)
+        schedulerD.step()
         del noise
 
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
-        # Once again classify the fake after update
+
         with autocast():
+            # Once again classify the fake after update
             output = netD(fake)
             errG = -output.mean()
 
@@ -305,26 +315,29 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             else:
                 rec_loss = 0
 
+        # zero grads and apply backward pass
         netG.zero_grad()
 
         with autocast():
             errG_total = errG + rec_loss
 
-        g_scaler.scale(errG_total).backward()
+        scaler.scale(errG_total).backward()
 
         # for _ in range(opt.Gsteps):
-        g_scaler.step(optimizerG)
+        scaler.step(optimizerG)
+        schedulerG.step()
 
         ############################
         # (3) Log Metrics
         ############################
-        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=iter + 1)
-        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=iter + 1)
-        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=iter + 1)
-        log_metric('Discriminator Loss', errD_total.item(), step=iter + 1)
-        log_metric('Generator Train Loss', errG.item(), step=iter + 1)
-        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=iter + 1)
-        log_metric('Generator Loss', errG_total.item(), step=iter + 1)
+        log_metric('Discriminator Train Loss Real', -errD_real.item(), step=metrics_step)
+        log_metric('Discriminator Train Loss Fake', errD_fake.item(), step=metrics_step)
+        log_metric('Discriminator Train Loss Gradient Penalty', gradient_penalty.item(), step=metrics_step)
+        log_metric('Discriminator Loss', errD_total.item(), step=metrics_step)
+        log_metric('Generator Train Loss', errG.item(), step=metrics_step)
+        log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=metrics_step)
+        log_metric('Generator Loss', errG_total.item(), step=metrics_step)
+        metrics_step += 1
 
         ############################
         # (4) Log Results
@@ -345,13 +358,10 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         #     generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
         #                      noise_amp, writer, reals, iter + 1)
 
-        d_scaler.update()
-        g_scaler.update()
-        schedulerD.step()
-        schedulerG.step()
+        scaler.update()
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt, d_scaler)
+    functions.save_networks(netG, netD, z_opt, opt, scaler)
     return fixed_noise, noise_amp, netG, netD
 
 
