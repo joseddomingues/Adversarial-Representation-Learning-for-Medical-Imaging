@@ -153,8 +153,6 @@ class GenerationEvaluator:
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
-        gen = transforms.Pad(padding=50)(gen)
-
         return ssim(self.original_image, gen), msssim(self.original_image, gen)
 
     def run_fid(self):
