@@ -262,6 +262,10 @@ def perform_harmonisation(model_configurations):
                                              collage, "harmonized_w_mask.jpg")
             shutil.move(target_harmonised, os.path.join(current_target, collage.replace(".png", "_harmonised.png")))
 
+        # Remove unnecessary folders from current generation
+        command = "rm -r mlruns TrainedModels"
+        for path in execute_bash_command(command.split()):
+            print(path, end="")
     os.chdir("..")
 
 
