@@ -38,7 +38,7 @@ class GenerationEvaluator:
         self.original_image = Image.open(self.original_image)
         if padd_input:
             self.original_image = self.original_image.resize(
-                (MIN_SSIM_SIZE, int(self.original_image.shape[1] * (MIN_SSIM_SIZE / self.original_image.shape[0]))))
+                (MIN_SSIM_SIZE, int(self.original_image.size[1] * (MIN_SSIM_SIZE / self.original_image.size[0]))))
         self.original_image = transform(self.original_image)
         self.original_image = self.original_image.reshape(
             (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
@@ -87,7 +87,7 @@ class GenerationEvaluator:
 
         gen = Image.open(generated_image)
         if padd:
-            gen = gen.resize((MIN_SSIM_SIZE, int(gen.shape[1] * (MIN_SSIM_SIZE / gen.shape[0]))))
+            gen = gen.resize((MIN_SSIM_SIZE, int(gen.size[1] * (MIN_SSIM_SIZE / gen.size[0]))))
         gen = transform(gen)
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
@@ -143,7 +143,7 @@ class GenerationEvaluator:
 
         gen = Image.open(generated_image)
         if padd:
-            gen = gen.resize((MIN_SSIM_SIZE, int(gen.shape[1] * (MIN_SSIM_SIZE / gen.shape[0]))))
+            gen = gen.resize((MIN_SSIM_SIZE, int(gen.size[1] * (MIN_SSIM_SIZE / gen.size[0]))))
         gen = transform(gen)
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
