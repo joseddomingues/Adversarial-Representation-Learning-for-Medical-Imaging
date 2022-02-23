@@ -36,8 +36,8 @@ class GenerationEvaluator:
         # 2. Convert Input Image to RGB if not
         self.original_image = Image.open(self.original_image)
         if padd_input:
-            new_w = int(256 / min(self.original_image.size) * self.original_image.size[0])
-            new_h = int(256 / min(self.original_image.size) * self.original_image.size[1])
+            new_w = int(MIN_SSIM_SIZE / min(self.original_image.size) * self.original_image.size[0])
+            new_h = int(MIN_SSIM_SIZE / min(self.original_image.size) * self.original_image.size[1])
             self.original_image = self.original_image.resize((new_w, new_h))
 
         self.original_image = transform(self.original_image)
@@ -88,8 +88,8 @@ class GenerationEvaluator:
 
         gen = Image.open(generated_image)
         if padd:
-            new_w = int(256 / min(gen.size) * gen.size[0])
-            new_h = int(256 / min(gen.size) * gen.size[1])
+            new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
+            new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
             gen = gen.resize((new_w, new_h))
         gen = transform(gen)
         gen = gen.reshape(
@@ -146,8 +146,8 @@ class GenerationEvaluator:
 
         gen = Image.open(generated_image)
         if padd:
-            new_w = int(256 / min(gen.size) * gen.size[0])
-            new_h = int(256 / min(gen.size) * gen.size[1])
+            new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
+            new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
             gen = gen.resize((new_w, new_h))
         gen = transform(gen)
         gen = gen.reshape(

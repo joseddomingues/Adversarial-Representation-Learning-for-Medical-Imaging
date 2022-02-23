@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append("../utils")
+sys.path.append("../")
 
 import cv2
 import numpy as np
