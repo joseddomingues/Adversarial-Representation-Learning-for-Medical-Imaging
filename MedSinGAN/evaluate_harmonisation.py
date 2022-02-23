@@ -36,7 +36,7 @@ class HarmonisationEvaluator:
         cv2.imwrite("base_compare_cropped.png", base_compare_cropped)
         cv2.imwrite("harmonised_compare_cropped.png", harmonised_compare_cropped)
 
-        self.evaluator = GenerationEvaluator("base_compare_cropped.png")
+        self.evaluator = GenerationEvaluator("base_compare_cropped.png", padd_input=True)
 
     def run_lpips(self):
         """

@@ -11,7 +11,7 @@ MIN_SSIM_SIZE = 256
 
 
 class GenerationEvaluator:
-    def __init__(self, input_image, generated=None):
+    def __init__(self, input_image, generated=None, padd_input=False):
         self.original_image = input_image
         self.generated_images = generated
 
@@ -34,7 +34,12 @@ class GenerationEvaluator:
             self.generated_images = output_images
 
         # 2. Convert Input Image to RGB if not
-        self.original_image = transform(Image.open(self.original_image))
+
+        self.original_image = Image.open(self.original_image)
+        if padd_input:
+            self.original_image = self.original_image.resize(
+                (MIN_SSIM_SIZE, int(self.original_image.shape[1] * (MIN_SSIM_SIZE / self.original_image.shape[0]))))
+        self.original_image = transform(self.original_image)
         self.original_image = self.original_image.reshape(
             (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
 
