@@ -4,9 +4,9 @@ import cv2
 import numpy as np
 
 from evaluate_generation import GenerationEvaluator
+from utils.utils import resize_to_dim
 
 sys.path.append("../utils")
-from utils.utils import resize_to_dim
 
 
 class HarmonisationEvaluator:
