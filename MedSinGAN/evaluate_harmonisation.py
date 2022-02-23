@@ -1,12 +1,12 @@
 import sys
 
+sys.path.append("../utils")
+
 import cv2
 import numpy as np
 
 from evaluate_generation import GenerationEvaluator
 from utils.utils import resize_to_dim
-
-sys.path.append("../utils")
 
 
 class HarmonisationEvaluator:
@@ -43,11 +43,11 @@ class HarmonisationEvaluator:
         Run the lpips metric to the given images
         @return: The lpips value
         """
-        return self.evaluator.run_lpips_to_image("harmonised_compare_cropped.png")
+        return self.evaluator.run_lpips_to_image("harmonised_compare_cropped.png", padd=True)
 
     def run_mssim(self):
         """
         Run the ms-ssim metric to the given images
         @return: The ms-ssim values
         """
-        return self.evaluator.run_mssim_to_image("harmonised_compare_cropped.png")
+        return self.evaluator.run_mssim_to_image("harmonised_compare_cropped.png", padd=True)

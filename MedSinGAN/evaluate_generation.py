@@ -7,6 +7,8 @@ from PIL import Image
 from cleanfid import fid
 from piqa import SSIM, MS_SSIM, LPIPS
 
+MIN_SSIM_SIZE = 256
+
 
 class GenerationEvaluator:
     def __init__(self, input_image, generated=None):
@@ -59,7 +61,7 @@ class GenerationEvaluator:
 
         return (average / len(self.generated_images.keys())).item()
 
-    def run_lpips_to_image(self, generated_image):
+    def run_lpips_to_image(self, generated_image, padd=False):
         """
         Run LPIPS test for the given generated image
         @param generated_image: Generated image to lpips
@@ -78,7 +80,10 @@ class GenerationEvaluator:
             transforms.ToTensor()
         ])
 
-        gen = transform(Image.open(generated_image))
+        gen = Image.open(generated_image)
+        if padd:
+            gen = gen.resize((MIN_SSIM_SIZE, int(gen.shape[1] * (MIN_SSIM_SIZE / gen.shape[0]))))
+        gen = transform(gen)
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
@@ -112,7 +117,7 @@ class GenerationEvaluator:
         return (average_ssim / len(self.generated_images.keys())).item(), \
                (average_mssim / len(self.generated_images.keys())).item()
 
-    def run_mssim_to_image(self, generated_image):
+    def run_mssim_to_image(self, generated_image, padd=False):
         """
         Run SSIM and MS-SSIM test for the given generated image
         @param generated_image: Generated image to mssim
@@ -131,9 +136,14 @@ class GenerationEvaluator:
             transforms.ToTensor()
         ])
 
-        gen = transform(Image.open(generated_image))
+        gen = Image.open(generated_image)
+        if padd:
+            gen = gen.resize((MIN_SSIM_SIZE, int(gen.shape[1] * (MIN_SSIM_SIZE / gen.shape[0]))))
+        gen = transform(gen)
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
+
+        gen = transforms.Pad(padding=50)(gen)
 
         return ssim(self.original_image, gen), msssim(self.original_image, gen)
 
