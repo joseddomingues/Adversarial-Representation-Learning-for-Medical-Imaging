@@ -1,16 +1,17 @@
 # Import required libraries
-import cv2
 import os
 import shutil
+import subprocess
+
+import cv2
 import imageio
-from skimage import io as img
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torchvision as tv
 from PIL import Image, ImageChops
-import subprocess
+from skimage import io as img
 
 
 def extract_harmonized_samples(input_folder="/Users/josedaviddomingues/Desktop/harmonised_samples/16_stages_malign",
@@ -40,6 +41,44 @@ def extract_harmonized_samples(input_folder="/Users/josedaviddomingues/Desktop/h
             if 'harmonized' in image:
                 shutil.move(input_folder + "/" + base_folder + '/' + image,
                             new_folder_name + '/' + base_folder + '_' + image)
+
+
+def crop_folder(folder_path, itype, target_path):
+    """
+    Crops a folder images to improve training quality
+    @param folder_path: Folder to crop
+    @param itype: Type of images. One of ("N", "M", "B", "A")
+    @param target_path: Target folder
+    @return:
+    """
+    if itype == "N" or itype == "A":
+        for image_elem in os.listdir(folder_path):
+
+            if ".DS_Store" in image_elem:
+                continue
+
+            crop_segmentation(os.path.join(folder_path, image_elem), os.path.join(target_path, image_elem))
+
+    else:
+        for elem in os.listdir(folder_path):
+
+            if ".DS_Store" in elem or "_mask" in elem:
+                continue
+
+            imag = cv2.imread(os.path.join(folder_path, elem), cv2.IMREAD_UNCHANGED)
+            imageObject = Image.open(os.path.join(folder_path, elem))
+            imageObject_mask = Image.open(os.path.join(folder_path, elem.replace(".png", "_mask.png")))
+            positions = np.nonzero(imag)
+
+            top = positions[0].min()
+            bottom = positions[0].max()
+            left = positions[1].min()
+            right = positions[1].max()
+
+            cropped = imageObject.crop((left, top, right, bottom))
+            cropped_mask = imageObject_mask.crop((left, top, right, bottom))
+            cropped.save(os.path.join(target_path, elem))
+            cropped_mask.save(os.path.join(target_path, elem.replace(".png", "_mask.png")))
 
 
 def generate_gif(images_folder='/images', gif_name='out_images'):
