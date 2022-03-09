@@ -107,7 +107,7 @@ class GenerationEvaluator:
         curr_ori = curr_ori.resize((gen.shape[2], gen.shape[3]), Image.ANTIALIAS)
         curr_ori = transform(curr_ori)
         curr_ori = curr_ori.reshape(
-            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+            (1, curr_ori.shape[0], curr_ori.shape[2], curr_ori.shape[1]))
 
         return criterion(curr_ori, gen)
 
