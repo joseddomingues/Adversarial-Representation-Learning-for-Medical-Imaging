@@ -19,19 +19,10 @@ class GenerationEvaluator:
         self.base_image = input_image
         self.output_folder = generated
 
-        # 1. Read output images
+        # Create transformation function to convert PIL images to tensors
         transform = transforms.Compose([
             transforms.ToTensor()
         ])
-
-        if generated:
-            output_images = {}
-            for im in os.listdir(self.generated_images):
-                output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
-                output_images[im] = output_images[im].reshape(
-                    (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
-
-            self.generated_images = output_images
 
         # 2. Convert Input Image to RGB if not
         self.original_image = Image.open(self.original_image)
@@ -43,6 +34,18 @@ class GenerationEvaluator:
         self.original_image = transform(self.original_image)
         self.original_image = self.original_image.reshape(
             (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
+
+        # 1. Read output images
+        if generated:
+            output_images = {}
+            for im in os.listdir(self.generated_images):
+                curr_im = Image.open(os.path.join(self.generated_images, im))
+                curr_im = curr_im.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
+                output_images[im] = transform(curr_im)
+                output_images[im] = output_images[im].reshape(
+                    (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
+
+            self.generated_images = output_images
 
     def run_lpips(self):
         """
@@ -87,6 +90,7 @@ class GenerationEvaluator:
         ])
 
         gen = Image.open(generated_image)
+        gen = gen.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
         if padd:
             new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
             new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
@@ -145,6 +149,7 @@ class GenerationEvaluator:
         ])
 
         gen = Image.open(generated_image)
+        gen = gen.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
         if padd:
             new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
             new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
