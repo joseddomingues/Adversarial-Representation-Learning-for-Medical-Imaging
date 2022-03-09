@@ -318,7 +318,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         scaler.update()
 
     if depth + 1 == len(reals):
-        evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth))
+        evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth),
+                                        adjust_sizes=True)
         log_metric('FID', evaluator.run_fid(), step=iter + 1)
         log_metric('LPIPS', evaluator.run_lpips(), step=iter + 1)
         ssim, ms_ssim = evaluator.run_mssim()

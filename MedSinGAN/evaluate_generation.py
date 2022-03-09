@@ -11,7 +11,8 @@ MIN_SSIM_SIZE = 256
 
 
 class GenerationEvaluator:
-    def __init__(self, input_image, generated=None, padd_input=False):
+    def __init__(self, input_image, generated=None, padd_input=False, adjust_sizes=False):
+        self.original_image_path = input_image
         self.original_image = input_image
         self.generated_images = generated
 
@@ -24,6 +25,16 @@ class GenerationEvaluator:
             transforms.ToTensor()
         ])
 
+        # 1. Read output images
+        if generated:
+            output_images = {}
+            for im in os.listdir(self.generated_images):
+                output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
+                output_images[im] = output_images[im].reshape(
+                    (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
+
+            self.generated_images = output_images
+
         # 2. Convert Input Image to RGB if not
         self.original_image = Image.open(self.original_image)
         if padd_input:
@@ -31,21 +42,15 @@ class GenerationEvaluator:
             new_h = int(MIN_SSIM_SIZE / min(self.original_image.size) * self.original_image.size[1])
             self.original_image = self.original_image.resize((new_w, new_h))
 
+        if adjust_sizes and self.generated_images:
+            example_sample = list(self.generated_images.keys())[0]
+            example_width = self.generated_images[example_sample].shape(2)
+            example_height = self.generated_images[example_sample].shape(3)
+            self.original_image = self.original_image.resize((example_height, example_width), Image.ANTIALIAS)
+
         self.original_image = transform(self.original_image)
         self.original_image = self.original_image.reshape(
             (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
-
-        # 1. Read output images
-        if generated:
-            output_images = {}
-            for im in os.listdir(self.generated_images):
-                curr_im = Image.open(os.path.join(self.generated_images, im))
-                curr_im = curr_im.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
-                output_images[im] = transform(curr_im)
-                output_images[im] = output_images[im].reshape(
-                    (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
-
-            self.generated_images = output_images
 
     def run_lpips(self):
         """
@@ -90,7 +95,6 @@ class GenerationEvaluator:
         ])
 
         gen = Image.open(generated_image)
-        gen = gen.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
         if padd:
             new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
             new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
@@ -99,7 +103,13 @@ class GenerationEvaluator:
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
-        return criterion(self.original_image, gen)
+        curr_ori = Image.open(self.original_image_path)
+        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
+        curr_ori = transform(curr_ori)
+        curr_ori = curr_ori.reshape(
+            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+
+        return criterion(curr_ori, gen)
 
     def run_mssim(self):
         """
@@ -149,7 +159,6 @@ class GenerationEvaluator:
         ])
 
         gen = Image.open(generated_image)
-        gen = gen.resize((self.original_image.shape[2], self.original_image.shape[3]), Image.ANTIALIAS)
         if padd:
             new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
             new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
@@ -158,7 +167,13 @@ class GenerationEvaluator:
         gen = gen.reshape(
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
-        return ssim(self.original_image, gen), msssim(self.original_image, gen)
+        curr_ori = Image.open(self.original_image_path)
+        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
+        curr_ori = transform(curr_ori)
+        curr_ori = curr_ori.reshape(
+            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+
+        return ssim(curr_ori, gen), msssim(curr_ori, gen)
 
     def run_fid(self):
         """
