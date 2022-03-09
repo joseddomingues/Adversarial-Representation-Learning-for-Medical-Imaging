@@ -46,7 +46,7 @@ class GenerationEvaluator:
             example_sample = list(self.generated_images.keys())[0]
             example_width = self.generated_images[example_sample].shape(2)
             example_height = self.generated_images[example_sample].shape(3)
-            self.original_image = self.original_image.resize((example_height, example_width), Image.ANTIALIAS)
+            self.original_image = self.original_image.resize((example_width, example_height), Image.ANTIALIAS)
 
         self.original_image = transform(self.original_image)
         self.original_image = self.original_image.reshape(
@@ -104,7 +104,7 @@ class GenerationEvaluator:
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
         curr_ori = Image.open(self.original_image_path)
-        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
+        curr_ori = curr_ori.resize((gen.shape[2], gen.shape[3]), Image.ANTIALIAS)
         curr_ori = transform(curr_ori)
         curr_ori = curr_ori.reshape(
             (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
@@ -168,7 +168,7 @@ class GenerationEvaluator:
             (1, gen.shape[0], gen.shape[1], gen.shape[2]))
 
         curr_ori = Image.open(self.original_image_path)
-        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
+        curr_ori = curr_ori.resize((gen.shape[2], gen.shape[3]), Image.ANTIALIAS)
         curr_ori = transform(curr_ori)
         curr_ori = curr_ori.reshape(
             (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
