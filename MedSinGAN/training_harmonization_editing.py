@@ -106,7 +106,8 @@ def train(opt):
             # Trains the Network on a specific scale
             fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, img_to_augment,
                                                                            naive_img, naive_img_large, fixed_noise,
-                                                             noise_amp, opt, scale_num, writer, metrics_step)
+                                                                           noise_amp, opt, scale_num, writer,
+                                                                           metrics_step)
 
             # Save stats, delete current discriminator and repeat loop
             torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
@@ -227,8 +228,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 _noise_amp = opt.noise_amp_init * RMSE
 
             noise_amp[-1] = g_scaler.scale(_noise_amp)
-
-            del z_reconstruction
+            del z_reconstruction, rec_loss, RMSE, _noise_amp
 
     # start training
     _iter = tqdm(range(opt.niter))
@@ -293,18 +293,20 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 errD_total = errD_real + errD_fake + gradient_penalty
 
             d_scaler.scale(errD_total).backward()
+            d_scaler.step(optimizerD)
+            d_scaler.update()
 
-        d_scaler.step(optimizerD)
         del noise
 
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
+
         # Once again classify the fake after update
         with autocast():
-            # Once again classify the fake after update
             output = netD(fake)
             errG = -output.mean()
+            del fake
 
             # having alpha != 0 then generate new output from noise and calculate MSE
             if alpha != 0:
@@ -321,8 +323,9 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
         g_scaler.scale(errG_total).backward()
 
-        # for _ in range(opt.Gsteps):
-        g_scaler.step(optimizerG)
+        for _ in range(opt.Gsteps):
+            g_scaler.step(optimizerG)
+            g_scaler.update()
 
         ############################
         # (3) Log Metrics
@@ -355,8 +358,6 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         #     generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
         #                      noise_amp, writer, reals, iter + 1)
 
-        d_scaler.update()
-        g_scaler.update()
         schedulerD.step()
         schedulerG.step()
 
@@ -430,6 +431,7 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
 
             with autocast():
                 sample = netG(noise, reals_shapes, noise_amp)
+            del noise
             functions.save_image('{}/{}_naive_sample.jpg'.format(dir2save, idx), augmented_image)
             functions.save_image('{}/{}_{}_sample.jpg'.format(dir2save, idx, _name), sample.detach())
             augmented_image = imresize_to_shape(augmented_image, sample.shape[2:], opt)
@@ -471,6 +473,7 @@ def generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt,
 
                 with autocast():
                     sample = netG(noise, reals_shapes, noise_amp)
+                del noise
                 _naive_img = imresize_to_shape(naive_img_large, sample.shape[2:], opt)
                 images.insert(0, sample.detach())
                 images.insert(0, _naive_img)
