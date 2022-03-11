@@ -44,8 +44,8 @@ class GenerationEvaluator:
 
         if adjust_sizes and self.generated_images:
             example_sample = list(self.generated_images.keys())[0]
-            example_width = self.generated_images[example_sample].shape(2)
-            example_height = self.generated_images[example_sample].shape(3)
+            example_width = self.generated_images[example_sample].shape[2]
+            example_height = self.generated_images[example_sample].shape[3]
             self.original_image = self.original_image.resize((example_height, example_width), Image.ANTIALIAS)
 
         self.original_image = transform(self.original_image)
