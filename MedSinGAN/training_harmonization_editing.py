@@ -289,7 +289,9 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 errD_fake = output.mean()
 
                 # calculate penalty, do backward pass and step
-                gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, d_scaler)
+
+            with autocast():
                 errD_total = errD_real + errD_fake + gradient_penalty
 
             d_scaler.scale(errD_total).backward()

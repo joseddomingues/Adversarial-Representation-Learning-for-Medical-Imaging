@@ -16,6 +16,7 @@ from albumentations.augmentations.transforms import ChannelShuffle, Cutout, Inve
     ChannelDropout
 from skimage import color, morphology, filters
 from skimage import io as img
+from torch.cuda.amp import autocast
 
 from imresize import imresize
 
@@ -162,7 +163,7 @@ def sample_random_noise(depth, reals_shapes, opt):
     return noise
 
 
-def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
+def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scaler):
     """
 
     @param netD:
@@ -194,16 +195,18 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
         interpolates = interpolates.to(device)  # .cuda()
         interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
 
-        disc_interpolates = netD(interpolates)
+        with autocast():
+            disc_interpolates = netD(interpolates)
 
-    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
+    gradients = torch.autograd.grad(outputs=given_scaler.scale(disc_interpolates), inputs=interpolates,
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
 
     # LAMBDA = 1
-    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+    with autocast():
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
 
     del interpolates
     del gradients
