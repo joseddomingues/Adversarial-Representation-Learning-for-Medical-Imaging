@@ -202,7 +202,11 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
-                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
+                                    create_graph=True, retain_graph=True, only_inputs=True)#[0]
+
+    inv_scale = 1. / given_scaler.get_scale()
+    gradients = [p * inv_scale for p in gradients]
+    gradients = gradients[0]
 
     # LAMBDA = 1
     with autocast():
