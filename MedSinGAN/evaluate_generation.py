@@ -14,7 +14,7 @@ class GenerationEvaluator:
     def __init__(self, input_image, generated=None, padd_input=False, adjust_sizes=False):
         self.original_image_path = input_image
         self.original_image = input_image
-        self.generated_images = generated
+        self.generated_images = [curr for curr in os.listdir(generated) if ".jpg" in curr]
 
         # Required for FID
         self.base_image = input_image
@@ -28,8 +28,8 @@ class GenerationEvaluator:
         # 1. Read output images
         if generated:
             output_images = {}
-            for im in os.listdir(self.generated_images):
-                output_images[im] = transform(Image.open(os.path.join(self.generated_images, im)))
+            for im in self.generated_images:
+                output_images[im] = transform(Image.open(os.path.join(generated, im)))
                 output_images[im] = output_images[im].reshape(
                     (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
 
