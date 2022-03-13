@@ -351,8 +351,8 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             writer.add_scalar('Loss/train/G/gen', errG.item(), iter + 1)
             writer.add_scalar('Loss/train/G/reconstruction', rec_loss.item(), iter + 1)
 
-            functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
-            functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
+            # functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
+            # functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
 
             # generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
             #                  noise_amp, writer, reals, iter + 1)
