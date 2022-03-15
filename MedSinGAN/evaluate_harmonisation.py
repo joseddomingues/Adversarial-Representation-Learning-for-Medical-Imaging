@@ -1,3 +1,4 @@
+import os
 import sys
 
 sys.path.append("../")
@@ -51,3 +52,16 @@ class HarmonisationEvaluator:
         @return: The ms-ssim values
         """
         return self.evaluator.run_mssim_to_image("harmonised_compare_cropped.png", padd=True)
+
+    @staticmethod
+    def clean_auxiliary_images():
+        """
+        Deletes the auxiliary images created for this harmonisation evaluation
+        @return: 0 if properly deleted or -1 if not
+        """
+        try:
+            os.remove("base_compare_cropped.png")
+            os.remove("harmonised_compare_cropped.png")
+            return 0
+        except OSError:
+            return -1
