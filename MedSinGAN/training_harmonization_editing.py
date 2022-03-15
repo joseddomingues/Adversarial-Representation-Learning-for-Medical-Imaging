@@ -216,18 +216,17 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         else:
             noise_amp.append(0)
 
-            with autocast():
-                z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+            z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
-                # define criterion and calculate the loss
-                criterion = nn.MSELoss()
-                rec_loss = criterion(z_reconstruction, real)
+            # define criterion and calculate the loss
+            criterion = nn.MSELoss()
+            rec_loss = criterion(z_reconstruction, real)
 
-                # calculate RMSE, multiply byt the initial amp and change the last one to it
-                RMSE = torch.sqrt(rec_loss).detach()
-                _noise_amp = opt.noise_amp_init * RMSE
+            # calculate RMSE, multiply byt the initial amp and change the last one to it
+            RMSE = torch.sqrt(rec_loss).detach()
+            _noise_amp = opt.noise_amp_init * RMSE
 
-            noise_amp[-1] = g_scaler.scale(_noise_amp)
+            noise_amp[-1] = _noise_amp
             del z_reconstruction, rec_loss, RMSE, _noise_amp
 
     # start training
