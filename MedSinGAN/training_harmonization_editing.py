@@ -285,7 +285,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                         fake = netG(noise, reals_shapes, noise_amp)
 
                 # classify the result from generator
-                output = netD(fake.detach().clone())
+                output = netD(fake.detach())
                 errD_fake = output.mean()
 
                 # calculate penalty, do backward pass and step
