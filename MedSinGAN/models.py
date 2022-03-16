@@ -64,9 +64,12 @@ class ConvBlock(nn.Sequential):
         """
 
         super(ConvBlock, self).__init__()
-        self.add_module('conv',
-                        nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=ker_size, stride=1,
-                                  padding=padd))
+        if generator and opt.batch_norm:
+            self.add_module('conv', nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
+                                              kernel_size=ker_size, stride=1, padding=padd, bias=False))
+        else:
+            self.add_module('conv', nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
+                                              kernel_size=ker_size, stride=1, padding=padd))
         if generator and opt.batch_norm:
             self.add_module('norm', nn.BatchNorm2d(out_channel))
         self.add_module(opt.activation, get_activation(opt))

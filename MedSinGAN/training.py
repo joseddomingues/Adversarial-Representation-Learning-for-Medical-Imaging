@@ -231,7 +231,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         for j in range(opt.Dsteps):
 
             # train with real
-            netD.zero_grad()
+            netD.zero_grad(set_to_none=True)
 
             with autocast():
                 output = netD(real)
@@ -280,7 +280,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 rec_loss = 0
 
         # zero grads and apply backward pass
-        netG.zero_grad()
+        netG.zero_grad(set_to_none=True)
 
         with autocast():
             errG_total = errG + rec_loss

@@ -6,6 +6,7 @@ from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 
 
+@torch.jit.script
 def denorm(x):
     """
 
@@ -17,6 +18,7 @@ def denorm(x):
     return out.clamp(0, 1)
 
 
+@torch.jit.script
 def norm(x):
     """
 
@@ -363,7 +365,7 @@ def kernel_shift(kernel, sf):
 
 # These next functions are all interpolation methods. x is the distance from the left pixel center
 
-
+@torch.jit.script
 def cubic(x):
     """
 
@@ -378,6 +380,7 @@ def cubic(x):
             (-0.5 * absx3 + 2.5 * absx2 - 4 * absx + 2) * ((1 < absx) & (absx <= 2)))
 
 
+@torch.jit.script
 def lanczos2(x):
     """
 
@@ -390,6 +393,7 @@ def lanczos2(x):
             * (abs(x) < 2))
 
 
+@torch.jit.script
 def box(x):
     """
 
@@ -400,6 +404,7 @@ def box(x):
     return ((-0.5 <= x) & (x < 0.5)) * 1.0
 
 
+@torch.jit.script
 def lanczos3(x):
     """
 
@@ -412,6 +417,7 @@ def lanczos3(x):
             * (abs(x) < 3))
 
 
+@torch.jit.script
 def linear(x):
     """
 

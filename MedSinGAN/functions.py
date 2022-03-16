@@ -21,6 +21,7 @@ from torch.cuda.amp import autocast
 from imresize import imresize
 
 
+@torch.jit.script
 def denorm(x):
     """
 
@@ -32,6 +33,7 @@ def denorm(x):
     return out.clamp(0, 1)
 
 
+@torch.jit.script
 def norm(x):
     """
 
@@ -177,8 +179,8 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
 
     MSGGan = False
     if MSGGan:
-        alpha = torch.rand(1, 1)
-        alpha = alpha.to(device)  # cuda() #gpu) #if use_cuda else alpha
+        alpha = torch.rand(1, 1, device=device)
+        # alpha = alpha.to(device)  # cuda() #gpu) #if use_cuda else alpha
 
         interpolates = [alpha * rd + ((1 - alpha) * fd) for rd, fd in zip(real_data, fake_data)]
         interpolates = [i.to(device) for i in interpolates]
@@ -187,9 +189,9 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
         disc_interpolates = netD(interpolates)
 
     else:
-        alpha = torch.rand(1, 1)
+        alpha = torch.rand(1, 1, device=device)
         alpha = alpha.expand(real_data.size())
-        alpha = alpha.to(device)  # cuda() #gpu) #if use_cuda else alpha
+        # alpha = alpha.to(device)  # cuda() #gpu) #if use_cuda else alpha
 
         interpolates = alpha * real_data + ((1 - alpha) * fake_data)
         interpolates = interpolates.to(device)  # .cuda()
@@ -202,7 +204,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
-                                    create_graph=True, retain_graph=True, only_inputs=True)#[0]
+                                    create_graph=True, retain_graph=True, only_inputs=True)  # [0]
 
     inv_scale = 1. / given_scaler.get_scale()
     gradients = [p * inv_scale for p in gradients]
