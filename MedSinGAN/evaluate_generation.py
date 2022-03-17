@@ -3,6 +3,8 @@ import os
 import shutil
 
 import torchvision.transforms as transforms
+import cv2
+import numpy as np
 from PIL import Image
 from cleanfid import fid
 from piqa import SSIM, MS_SSIM, LPIPS
@@ -21,7 +23,7 @@ class GenerationEvaluator:
         self.output_folder = generated
 
         # Create transformation function to convert PIL images to tensors
-        transform = transforms.Compose([
+        self.transform = transforms.Compose([
             transforms.ToTensor()
         ])
 
@@ -29,7 +31,7 @@ class GenerationEvaluator:
         if generated:
             output_images = {}
             for im in self.generated_images:
-                output_images[im] = transform(Image.open(os.path.join(generated, im)))
+                output_images[im] = self.transform(Image.open(os.path.join(generated, im)))
                 output_images[im] = output_images[im].reshape(
                     (1, output_images[im].shape[0], output_images[im].shape[1], output_images[im].shape[2]))
 
@@ -48,9 +50,25 @@ class GenerationEvaluator:
             example_height = self.generated_images[example_sample].shape[3]
             self.original_image = self.original_image.resize((example_height, example_width), Image.ANTIALIAS)
 
-        self.original_image = transform(self.original_image)
+        self.original_image = self.transform(self.original_image)
         self.original_image = self.original_image.reshape(
             (1, self.original_image.shape[0], self.original_image.shape[1], self.original_image.shape[2]))
+
+        # 3.Gets cropping positions
+        based = cv2.imread(self.original_image_path)
+        positions = np.nonzero(based)
+        self.top = positions[0].min()
+        self.bottom = positions[0].max()
+        self.left = positions[1].min()
+        self.right = positions[1].max()
+
+    def crop_image_with_orginal(self, input_image):
+        """
+
+        @param input_image:
+        @return:
+        """
+        return input_image[:, :, self.top: self.bottom, self.left: self.right]
 
     def run_lpips(self):
         """
@@ -68,9 +86,13 @@ class GenerationEvaluator:
         # Calculate average
         average = 0
 
+        # Crops image
+        aux_original_cropped = self.crop_image_with_original(self.original_image)
+
         # For each generated image calculate lpips
         for image in self.generated_images.keys():
-            loss = criterion(self.original_image, self.generated_images[image])
+            curr_image = self.crop_image_with_orginal(self.generated_images[image])
+            loss = criterion(aux_original_cropped, curr_image)
             average += loss
 
         return (average / len(self.generated_images.keys())).item()
@@ -78,6 +100,7 @@ class GenerationEvaluator:
     def run_lpips_to_image(self, generated_image, padd=False):
         """
         Run LPIPS test for the given generated image
+        @param padd:
         @param generated_image: Generated image to lpips
         @return: The average LPIPS value for the generated image
         """
@@ -88,26 +111,7 @@ class GenerationEvaluator:
 
         # Initialize criterion
         criterion = LPIPS()
-
-        # Transformation for generated
-        transform = transforms.Compose([
-            transforms.ToTensor()
-        ])
-
-        gen = Image.open(generated_image)
-        if padd:
-            new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
-            new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
-            gen = gen.resize((new_w, new_h))
-        gen = transform(gen)
-        gen = gen.reshape(
-            (1, gen.shape[0], gen.shape[1], gen.shape[2]))
-
-        curr_ori = Image.open(self.original_image_path)
-        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
-        curr_ori = transform(curr_ori)
-        curr_ori = curr_ori.reshape(
-            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+        curr_ori, gen = self._prepare_for_image(generated_image, padd)
 
         return criterion(curr_ori, gen)
 
@@ -128,12 +132,17 @@ class GenerationEvaluator:
         average_ssim = 0
         average_mssim = 0
 
+        # Crops image
+        aux_original_cropped = self.crop_image_with_original(self.original_image)
+
         # For each generated image calculate MS-SSIM and SSIM
         for image in self.generated_images.keys():
-            ssim_loss = ssim(self.original_image, self.generated_images[image])
+            curr_image = self.crop_image_with_orginal(self.generated_images[image])
+
+            ssim_loss = ssim(aux_original_cropped, curr_image)
             average_ssim += ssim_loss
 
-            msssim_loss = msssim(self.original_image, self.generated_images[image])
+            msssim_loss = msssim(aux_original_cropped, curr_image)
             average_mssim += msssim_loss
 
         return (average_ssim / len(self.generated_images.keys())).item(), \
@@ -152,26 +161,7 @@ class GenerationEvaluator:
 
         ssim = SSIM()
         msssim = MS_SSIM()
-
-        # Transformation for generated
-        transform = transforms.Compose([
-            transforms.ToTensor()
-        ])
-
-        gen = Image.open(generated_image)
-        if padd:
-            new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
-            new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
-            gen = gen.resize((new_w, new_h))
-        gen = transform(gen)
-        gen = gen.reshape(
-            (1, gen.shape[0], gen.shape[1], gen.shape[2]))
-
-        curr_ori = Image.open(self.original_image_path)
-        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
-        curr_ori = transform(curr_ori)
-        curr_ori = curr_ori.reshape(
-            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+        curr_ori, gen = self._prepare_for_image(generated_image, padd)
 
         return ssim(curr_ori, gen), msssim(curr_ori, gen)
 
@@ -201,3 +191,38 @@ class GenerationEvaluator:
         shutil.rmtree(folder_name)
 
         return score
+
+    def _prepare_for_image(self, generated_image, padd=False):
+        """
+
+        @param generated_image:
+        @param padd:
+        @return:
+        """
+
+        # Gets cropping positions
+        based = cv2.imread(generated_image)
+        positions = np.nonzero(based)
+        top = positions[0].min()
+        bottom = positions[0].max()
+        left = positions[1].min()
+        right = positions[1].max()
+
+        gen = Image.open(generated_image)
+        gen = gen.crop((left, top, right, bottom))
+        if padd:
+            new_w = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[0])
+            new_h = int(MIN_SSIM_SIZE / min(gen.size) * gen.size[1])
+            gen = gen.resize((new_w, new_h))
+        gen = self.transform(gen)
+        gen = gen.reshape(
+            (1, gen.shape[0], gen.shape[1], gen.shape[2]))
+
+        curr_ori = Image.open(self.original_image_path)
+        curr_ori = curr_ori.crop((left, top, right, bottom))
+        curr_ori = curr_ori.resize((gen.shape[3], gen.shape[2]), Image.ANTIALIAS)
+        curr_ori = self.transform(curr_ori)
+        curr_ori = curr_ori.reshape(
+            (1, curr_ori.shape[0], curr_ori.shape[1], curr_ori.shape[2]))
+
+        return curr_ori, gen
