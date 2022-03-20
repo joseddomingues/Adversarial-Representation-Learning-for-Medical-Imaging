@@ -507,5 +507,7 @@ def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
         os.remove('segmented_mass.png')
         os.remove('cropped_mass.png')
         os.remove('malign_mask_cropped.png')
+        os.remove("malign_aux.png")
+        os.remove("normal_aux.png")
     except OSError as e:
         print(f"FAILED\nFile: {e.filename}\nError: {e.strerror}")
