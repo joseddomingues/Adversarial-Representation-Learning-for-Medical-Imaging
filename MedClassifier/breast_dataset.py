@@ -1,6 +1,7 @@
 import os
 
 from torch.utils.data import Dataset
+from PIL import Image
 
 
 class BreastDataset(Dataset):
@@ -35,6 +36,7 @@ class BreastDataset(Dataset):
     def __getitem__(self, idx):
 
         target_image = self.images[idx]
+        target_image = Image.open(target_image)
 
         if self.transform:
             target_image = self.transform(target_image)
