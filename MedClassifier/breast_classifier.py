@@ -28,7 +28,7 @@ class BreastClassifier(nn.Module):
         x = self.cb4(x)
         x = self.cb5(x)
         x = self.cb6(x)
-
+        x = nn.Flatten(x)
         x = self.fcb1(x)
         x = self.fcb2(x)
         x = self.fcb3(x)
@@ -48,8 +48,8 @@ class FullConvolutionBlock(nn.Module):
 
     def forward(self, x):
         x = self.dense(x)
-        x = self.dp(x)
         x = self.act_fnc(x)
+        x = self.dp(x)
         return x
 
 
@@ -64,8 +64,8 @@ class ConvolutionBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.act_func(x)
         x = self.batch_norm(x)
+        x = self.act_func(x)
         x = self.pool(x)
         return x
 

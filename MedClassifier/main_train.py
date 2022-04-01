@@ -6,23 +6,26 @@ import torchvision.transforms as tvt
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
+from tqdm import tqdm
 
 from MedClassifier.breast_classifier import BreastClassifier
+from MedClassifier.mammogram_classifier import MammogramClassifier
 from MedClassifier.breast_dataset import BreastDataset
 
 
 def train_classifier(options_map, curr_device):
-    # Initialize the dataset
+    # Initialize the dataset with the processing for the ResNet approach
     transformations = tvt.Compose([
         tvt.ToTensor(),
-        tvt.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     train_dataset = BreastDataset(data_root_folder=options_map["train_folder"], transform=transformations)
     train_data = DataLoader(train_dataset, batch_size=5, shuffle=True, pin_memory=True)
 
     # Initialize the network
-    nnet = BreastClassifier()
+    # 4 classes -> Benign, Malign, Normal
+    nnet = MammogramClassifier(n_classes=3)
     nnet.to(curr_device)
 
     # Create optimizer and loss function
@@ -34,7 +37,7 @@ def train_classifier(options_map, curr_device):
     iter_log = 0
     nnet.train()
 
-    for epoch in range(options_map["iter"]):
+    for epoch in tqdm(range(options_map["iter"])):
 
         print(f"========== ITER {epoch + 1} ==========")
 
@@ -89,7 +92,7 @@ def train_classifier(options_map, curr_device):
 
         nnet.eval()
         with torch.no_grad():
-            for batch in train_data:
+            for batch in test_data:
                 images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
                 pred = nnet(images)
                 _, predicted = torch.max(pred.data, 1)
@@ -102,7 +105,7 @@ def train_classifier(options_map, curr_device):
                         correct_pred[classes[label]] += 1
                     total_pred[classes[label]] += 1
 
-        print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+        print(f'Accuracy of the network on the test images: {100 * correct // total} %')
         for classname, correct_count in correct_pred.items():
             accuracy = 100 * float(correct_count) / total_pred[classname]
             print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')

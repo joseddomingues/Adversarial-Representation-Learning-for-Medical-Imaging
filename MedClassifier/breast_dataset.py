@@ -27,18 +27,17 @@ class BreastDataset(Dataset):
             for curr_image in os.listdir(os.path.join(self.root_data, folder)):
                 if "_mask" not in curr_image:
                     curr_image_path = os.path.join(self.root_data, folder, curr_image)
-                    self.images.append(curr_image_path)
+
+                    # Reads the current image and preprocess it just in case
+                    target_image = Image.open(curr_image_path)
+                    if self.transform:
+                        target_image = self.transform(target_image)
+
+                    self.images.append(target_image)
                     self.images_target.append(self.labels_map[folder])
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, idx):
-
-        target_image = self.images[idx]
-        target_image = Image.open(target_image)
-
-        if self.transform:
-            target_image = self.transform(target_image)
-
-        return target_image, self.images_target[idx]
+        return self.images[idx], self.images_target[idx]
