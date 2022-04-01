@@ -1,8 +1,9 @@
 # Generation Configurations
 generation:
   niter: 2500
-  stages: 16
-  concurrent: 9
+  stages: 24
+  concurrent: 20
+  act_func: prelu
 
 # Segmentation Configurations
 segmentation:
@@ -13,9 +14,11 @@ segmentation:
 
 # Harmonisation Configurations
 harmonisation:
-  niter: 2000
-  stages: 3
+  niter: 1000
+  stages: 16
+  act_func: prelu
+  concurrent: 9
   im_min_size: 120
-  im_max_size: 1080
+  im_max_size: 614
   lrelu_alpha: 0.3
 

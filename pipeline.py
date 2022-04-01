@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 
 import yaml
 
-from utils.utils import get_image_core_name, execute_bash_command, get_latest_model, is_collage_possible, make_collage, \
-    make_3_channels_mask
+from utils.utils import get_image_core_name, execute_bash_command, get_latest_model, \
+    is_collage_possible, make_collage, make_3_channels_mask
 
 # Global Variables
 MAIN_GENERATION_FOLDER = "generated_images"
@@ -44,7 +44,7 @@ def perform_generation(base_folder, target_folder, model_configurations):
         if not os.path.exists(current_folder):
             os.mkdir(current_folder)
 
-        command = f"python main_train.py --train_mode generation --input_name {image} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --gpu 0 "
+        command = f"python main_train.py --train_mode generation --input_name {image} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --batch_norm --gpu 0 "
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
@@ -217,8 +217,6 @@ def perform_collage(base_folder, base_images):
 
     os.remove("collage_mask.png")
     os.remove("collage.png")
-    os.remove("malign_aux.png")
-    os.remove("normal_aux.png")
 
 
 ################################################
@@ -244,7 +242,7 @@ def perform_harmonisation(model_configurations):
             os.mkdir(current_target)
 
         # Harmonise training with the current base image
-        cmd = f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {model_configurations['stages']} --im_min_size {model_configurations['im_min_size']} --lrelu_alpha {model_configurations['lrelu_alpha']} --niter {model_configurations['niter']} --batch_norm --input_name {os.path.join(MAIN_COLLAGE_FOLDER, folder, 'base_image.png')}"
+        cmd = f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {model_configurations['stages']} --train_depth {model_configurations['concurrent']} --im_min_size {model_configurations['im_min_size']} --im_max_size {model_configurations['im_max_size']} --activation {model_configurations['act_func']} --lrelu_alpha {model_configurations['lrelu_alpha']} --niter {model_configurations['niter']} --batch_norm --input_name {os.path.join(MAIN_COLLAGE_FOLDER, folder, 'base_image.png')}"
 
         for path in execute_bash_command(cmd.split()):
             print(path, end="")

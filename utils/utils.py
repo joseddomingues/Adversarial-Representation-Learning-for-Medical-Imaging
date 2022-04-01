@@ -301,6 +301,12 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     @return: -1,-1 if collage is not possible | w,h if its possible
     """
 
+    def remove_auxiliary_images():
+        files_to_delete = ["normal_aux.png", "malign_aux.png"]
+        for elem in files_to_delete:
+            if os.path.exists(elem):
+                os.remove(elem)
+
     # Operations Threshold
     threshold = 50
 
@@ -309,7 +315,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
     normal_breast = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
     normal_binary = image_to_binary(normal_breast, 'normal_aux.png')
 
-    # Get images laterality
+    # Get images orientation
     R, _ = get_image_laterality(normal_breast)
 
     # Get images measures
@@ -327,6 +333,7 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
 
     # Check if its worth the try
     if malign_mass_width > normal_breast_width or malign_mass_height > normal_breast_height:
+        remove_auxiliary_images()
         return -1, -1
 
     # Crop the malign mask
@@ -343,20 +350,24 @@ def is_collage_possible(malign_mask_pth, normal_breast_pth):
         # Go up until the masks match. If never match then skip them
         while c < normal_binary.shape[1]:
             if does_collage_mask(c, d, 'normal_aux.png'):
+                remove_auxiliary_images()
                 return c, d
 
             c, d = c + threshold, d
 
+        remove_auxiliary_images()
         return -1, -1
     else:
 
         # Go up until the masks match. If never match then skip them
         while c >= threshold:
             if does_collage_mask(c, d, 'normal_aux.png'):
+                remove_auxiliary_images()
                 return c, d
 
             c, d = c - threshold, d
 
+        remove_auxiliary_images()
         return -1, -1
 
 
@@ -471,21 +482,36 @@ def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
     @param height: height of collage point
     @return: -
     """
-    # Reads malign base image
-    malign = cv2.imread(malign_pth, cv2.IMREAD_UNCHANGED)
 
-    # Convert mask to 3 channels
-    make_3_channels_mask(malign_mask_pth, 'malign_mask3.png')
-    malign_mask = cv2.imread('malign_mask3.png', cv2.IMREAD_UNCHANGED)
+    black_image_excess_threshold = 50
 
-    # Grab the image mask from the mass image
+    # Reads base images
+    malign = cv2.imread(malign_pth, cv2.IMREAD_GRAYSCALE)
+    malign_mask = cv2.imread(malign_mask_pth, cv2.IMREAD_GRAYSCALE)
+
+    # Removes the excess of black image
     masked = malign.copy()
     masked[malign_mask == 0] = 0
+
+    for i in range(len(masked)):
+        for j in range(len(masked[i])):
+            if masked[i][j] <= black_image_excess_threshold:
+                masked[i][j] = 0
+
+    # Create the associated mask with removed excess of black image
+    masked2_mask = masked.copy()
+    for i in range(len(masked2_mask)):
+        for j in range(len(masked2_mask[i])):
+            if masked2_mask[i][j] > 0:
+                masked2_mask[i][j] = 255
+
+    # Save both changed images
     cv2.imwrite('segmented_mass.png', masked)
+    cv2.imwrite('segmented_mass_mask.png', masked2_mask)
 
     # Crop both the mask, and the masked mass
     crop_segmentation('segmented_mass.png', 'cropped_mass.png')
-    crop_segmentation(malign_mask_pth, 'malign_mask_cropped.png')
+    crop_segmentation('segmented_mass_mask.png', 'malign_mask_cropped.png')
 
     normal_image = Image.open(normal_pth)
     mass_to_paste = Image.open('cropped_mass.png')
@@ -502,12 +528,7 @@ def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
     collage_mask.save('collage_mask.png', quality=95)
 
     # Deletes unnecessary images
-    try:
-        os.remove('malign_mask3.png')
-        os.remove('segmented_mass.png')
-        os.remove('cropped_mass.png')
-        os.remove('malign_mask_cropped.png')
-        os.remove("malign_aux.png")
-        os.remove("normal_aux.png")
-    except OSError as e:
-        print(f"FAILED\nFile: {e.filename}\nError: {e.strerror}")
+    files_to_delete = ["cropped_mass.png", "malign_mask_cropped.png", "segmented_mass.png", "segmented_mass_mask.png"]
+    for elem in files_to_delete:
+        if os.path.exists(elem):
+            os.remove(elem)
