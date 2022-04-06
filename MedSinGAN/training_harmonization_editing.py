@@ -355,10 +355,10 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             # functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
 
             # generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-            #                  noise_amp, writer, reals, iter + 1)
+            #                  noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
         # elif opt.fine_tune and iter % 100 == 0:
         #     generate_samples(netG, img_to_augment, naive_img, naive_img_large, aug, opt, depth,
-        #                      noise_amp, writer, reals, iter + 1)
+        #                      noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
 
         schedulerD.step()
         schedulerG.step()
