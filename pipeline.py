@@ -5,8 +5,7 @@ from argparse import ArgumentParser
 
 import yaml
 
-from utils.utils import get_image_core_name, execute_bash_command, get_latest_model, \
-    is_collage_possible, make_collage, make_3_channels_mask
+from utils.utils import get_image_core_name, execute_bash_command, get_latest_model, perform_collage
 
 # Global Variables
 MAIN_GENERATION_FOLDER = "generated_images"
@@ -67,7 +66,7 @@ def perform_generation(base_folder, target_folder, model_configurations):
 # COLLAGE
 ################################################
 
-def perform_collage(base_folder, base_images):
+def perform_pipeline_collage(base_folder, base_images):
     """
     Performs collages with benign and malign images in the base folder, in the base images folder
     @param base_folder: Input folder with benign and malign mammography along segmentation
@@ -98,18 +97,11 @@ def perform_collage(base_folder, base_images):
                              "_mask" not in b_image if not b_image.startswith(".")]
 
             for benign_image in benign_images:
-                w, h = is_collage_possible(benign_image.replace(".png", "_mask.png"),
-                                           os.path.join(base_images, image_folder, base_image))
+                curr_normal = os.path.join(base_images, image_folder, base_image)
+                curr_benign = benign_image
+                curr_benign_mask = benign_image.replace(".png", "_mask.png")
 
-                if w != -1 and h != -1:
-                    make_collage(benign_image, benign_image.replace(".png", "_mask.png"),
-                                 os.path.join(base_images, image_folder, base_image), w, h)
-
-                    # Make the collage mask 3-channel
-                    make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
-                    os.remove('collage_mask.png')
-                    os.rename('collage_mask3.png', 'collage_mask.png')
-
+                if perform_collage(curr_normal, curr_benign, curr_benign_mask) == 1:
                     # Copy collage and mask to respective folder with respective name
                     shutil.copy("collage.png", os.path.join(curr_collage_folder, f"benign_collage_{ids}.png"))
                     shutil.copy("collage_mask.png", os.path.join(curr_collage_folder, f"benign_collage_{ids}_mask.png"))
@@ -124,18 +116,11 @@ def perform_collage(base_folder, base_images):
                              "_mask" not in m_image if not m_image.startswith(".")]
 
             for malign_image in malign_images:
-                w, h = is_collage_possible(malign_image.replace(".png", "_mask.png"),
-                                           os.path.join(base_images, image_folder, base_image))
+                curr_normal = os.path.join(base_images, image_folder, base_image)
+                curr_malign = malign_image
+                curr_malign_mask = malign_image.replace(".png", "_mask.png")
 
-                if w != -1 and h != -1:
-                    make_collage(malign_image, malign_image.replace(".png", "_mask.png"),
-                                 os.path.join(base_images, image_folder, base_image), w, h)
-
-                    # Make the collage mask 3-channel
-                    make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
-                    os.remove('collage_mask.png')
-                    os.rename('collage_mask3.png', 'collage_mask.png')
-
+                if perform_collage(curr_normal, curr_malign, curr_malign_mask) == 1:
                     # Copy collage and mask to respective folder with respective name
                     shutil.copy("collage.png", os.path.join(curr_collage_folder, f"malign_collage_{ids}.png"))
                     shutil.copy("collage_mask.png", os.path.join(curr_collage_folder, f"malign_collage_{ids}_mask.png"))
@@ -286,7 +271,7 @@ if __name__ == "__main__":
         os.mkdir(MAIN_COLLAGE_FOLDER)
 
     # Perform collages
-    perform_collage(opt_map.data_folder, os.path.join(MAIN_GENERATION_FOLDER, DATA_FOLDER_NORMAL))
+    perform_pipeline_collage(opt_map.data_folder, os.path.join(MAIN_GENERATION_FOLDER, DATA_FOLDER_NORMAL))
 
     #######################################
     # HARMONISATION

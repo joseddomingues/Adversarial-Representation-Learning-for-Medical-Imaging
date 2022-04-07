@@ -255,7 +255,7 @@ def get_correct_value(number):
         return 255
 
 
-def image_to_binary(image, pth):
+def image_to_binary(image, pth=None):
     """
     Convert image to binary
     @param image: Image to convert image
@@ -268,7 +268,8 @@ def image_to_binary(image, pth):
         b_image.append(curr)
     b_image = np.array(b_image, dtype=np.uint8)
 
-    plt.imsave(pth, np.array(b_image), cmap=cm.gray)
+    if pth:
+        plt.imsave(pth, np.array(b_image), cmap=cm.gray)
     return b_image
 
 
@@ -532,3 +533,54 @@ def make_collage(malign_pth, malign_mask_pth, normal_pth, width, height):
     for elem in files_to_delete:
         if os.path.exists(elem):
             os.remove(elem)
+
+
+def perform_collage(normal_breast_pth, malign_breast_pth, malign_breast_mask_pth):
+    # Define focus images
+    target_normal = "curr_normal.png"
+    target_malign = "curr_malign.png"
+    target_malign_mask = "curr_malign_mask.png"
+
+    def remove_auxiliary_images():
+        files_to_delete = [target_normal, target_malign, target_malign_mask]
+        for elem in files_to_delete:
+            if os.path.exists(elem):
+                os.remove(elem)
+
+    # Adjusts the images because they can have different sizes
+    base_image = cv2.imread(normal_breast_pth, cv2.IMREAD_GRAYSCALE)
+    malign = cv2.imread(malign_breast_pth, cv2.IMREAD_GRAYSCALE)
+    malign_mask = cv2.imread(malign_breast_mask_pth, cv2.IMREAD_GRAYSCALE)
+
+    dim = (base_image.shape[1], base_image.shape[0])
+    malign_resized = cv2.resize(malign, dim, interpolation=cv2.INTER_AREA)
+    malign_mask_resized = cv2.resize(malign_mask, dim, interpolation=cv2.INTER_AREA)
+    malign_mask_resized = image_to_binary(malign_mask_resized)
+
+    cv2.imwrite(target_normal, base_image)
+    cv2.imwrite(target_malign, malign_resized)
+    cv2.imwrite(target_malign_mask, malign_mask_resized)
+
+    # Checks if collage is possible between two images
+    w, h = is_collage_possible(malign_mask_pth=target_malign_mask, normal_breast_pth=target_normal)
+
+    if w != -1 and h != -1:
+        make_collage(malign_pth=target_malign, malign_mask_pth=target_malign_mask, normal_pth=target_normal,
+                     width=w, height=h)
+
+        # Make the collage mask 3-channel
+        make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
+        os.remove('collage_mask.png')
+        os.rename('collage_mask3.png', 'collage_mask.png')
+
+        # Deletes unnecessary images
+        remove_auxiliary_images()
+
+        # Returns success
+        return 1
+
+    # Deletes unnecessary images
+    remove_auxiliary_images()
+
+    # Returns unsuccess
+    return -1
