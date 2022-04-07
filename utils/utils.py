@@ -568,6 +568,11 @@ def perform_collage(normal_breast_pth, malign_breast_pth, malign_breast_mask_pth
         make_collage(malign_pth=target_malign, malign_mask_pth=target_malign_mask, normal_pth=target_normal,
                      width=w, height=h)
 
+        # Make the collage 3-channel
+        make_3_channels_mask('collage.png', 'collage3.png')
+        os.remove('collage.png')
+        os.rename('collage3.png', 'collage.png')
+
         # Make the collage mask 3-channel
         make_3_channels_mask('collage_mask.png', 'collage_mask3.png')
         os.remove('collage_mask.png')
