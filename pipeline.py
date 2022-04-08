@@ -210,7 +210,7 @@ def do_collage_generation(model_configurations):
 
             os.chdir("MedSinGAN")
 
-            command = f"python main_train.py --train_mode generation --input_name {os.path.join('..', MAIN_HARMONISATION_FOLDER, folder, harmonised_image)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --gpu 0 "
+            command = f"python main_train.py --train_mode generation --input_name {os.path.join('..', MAIN_HARMONISATION_FOLDER, folder, harmonised_image)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --batch_norm --gpu 0 "
             for path in execute_bash_command(command.split()):
                 print(path, end="")
 
