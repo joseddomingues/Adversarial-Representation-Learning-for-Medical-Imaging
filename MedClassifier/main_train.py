@@ -14,8 +14,13 @@ from MedClassifier.breast_dataset import BreastDataset
 
 
 def train_classifier(options_map, curr_device):
+
+    # Dimensions of the 25% size image
+    reduced_images_size = (614, 499)
+
     # Initialize the dataset with the processing for the ResNet approach
     transformations = tvt.Compose([
+        tvt.Resize(reduced_images_size),
         tvt.ToTensor(),
         tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -78,11 +83,6 @@ def train_classifier(options_map, curr_device):
         test_dataset = BreastDataset(data_root_folder=options_map["test_folder"], transform=transformations)
         test_data = DataLoader(test_dataset, batch_size=5, shuffle=False, pin_memory=True)
 
-        # Load the trained and saved model
-        nnet = BreastClassifier()
-        nnet.load_state_dict(torch.load(model_path))
-        nnet.to(curr_device)
-
         # Evaluate each image batch
         classes = ["benign", "malign", "normal"]
         correct = 0
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     arg = ArgumentParser()
     arg.add_argument('--train_folder', help='Train Folder for Classification', type=str, required=True)
     arg.add_argument('--test_folder', help='Test Folder for Classification', type=str)
-    arg.add_argument('--iter', help='Number of Iterations to Train', type=int)
+    arg.add_argument('--iter', help='Number of Iterations to Train', type=int, required=True)
     opt_map = arg.parse_args()
 
     # Get current device
