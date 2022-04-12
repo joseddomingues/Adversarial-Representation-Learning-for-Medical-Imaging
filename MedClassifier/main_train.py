@@ -1,21 +1,20 @@
 from argparse import ArgumentParser
+from datetime import datetime
 
 import torch.cuda
 import torch.nn as nn
 import torchvision.transforms as tvt
+from mlflow import log_param, log_metric, start_run
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
-from datetime import datetime
 
-from mlflow import log_param, log_metric, start_run
-from mammogram_classifier import MammogramClassifier
 from breast_dataset import BreastDataset
+from mammogram_classifier import MammogramClassifier
 
 
 def train_classifier(options_map, curr_device):
-
     now = datetime.now()
 
     with start_run(nested=True, run_name=now.strftime("%d_%m_%y_%H_%M_%S")):
@@ -38,7 +37,7 @@ def train_classifier(options_map, curr_device):
         ])
 
         train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
-        train_data = DataLoader(train_dataset, batch_size=3, shuffle=True, pin_memory=True)
+        train_data = DataLoader(train_dataset, batch_size=30, shuffle=True, pin_memory=True)
 
         # Initialize the network
         # 4 classes -> Benign, Malign, Normal
@@ -54,9 +53,9 @@ def train_classifier(options_map, curr_device):
         iter_log = 0
         nnet.train()
 
-        for epoch in tqdm(range(options_map.iter)):
-
-            print(f"========== ITER {epoch + 1} ==========")
+        _iter = tqdm(range(options_map.iter))
+        for epoch in _iter:
+            _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
 
             for i, batch in enumerate(train_data, 0):
                 # Move batch to gpu
@@ -69,7 +68,7 @@ def train_classifier(options_map, curr_device):
                 pred = nnet(images)
                 loss = loss_fn(pred, labels)
                 loss.backward()
-                optimizer.update()
+                optimizer.step()
 
                 # Write data to tensorboard
                 writer.add_scalar("Loss/train", loss.item(), iter_log)
@@ -94,7 +93,7 @@ def train_classifier(options_map, curr_device):
         # If a test set is given then evaluate the accuracy of the model
         if options_map.test_folder:
             test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations)
-            test_data = DataLoader(test_dataset, batch_size=3, shuffle=False, pin_memory=True)
+            test_data = DataLoader(test_dataset, batch_size=30, shuffle=False, pin_memory=True)
 
             # Evaluate each image batch
             classes = ["benign", "malign", "normal"]
