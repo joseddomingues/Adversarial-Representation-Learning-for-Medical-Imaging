@@ -10,8 +10,8 @@ from tqdm import tqdm
 from datetime import datetime
 
 from mlflow import log_param, log_metric, start_run
-from MedClassifier.mammogram_classifier import MammogramClassifier
-from MedClassifier.breast_dataset import BreastDataset
+from mammogram_classifier import MammogramClassifier
+from breast_dataset import BreastDataset
 
 
 def train_classifier(options_map, curr_device):
@@ -21,7 +21,7 @@ def train_classifier(options_map, curr_device):
     with start_run(nested=True, run_name=now.strftime("%d_%m_%y_%H_%M_%S")):
 
         # Log parameters to mlflow
-        log_param("N Iterations", options_map["iter"])
+        log_param("N Iterations", options_map.iter)
         log_param("Image Size Training", "614x499")
         log_param("Batch Size", 3)
         log_param("Loss", "Cross Entropy Loss")
@@ -37,7 +37,7 @@ def train_classifier(options_map, curr_device):
             tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        train_dataset = BreastDataset(data_root_folder=options_map["train_folder"], transform=transformations)
+        train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
         train_data = DataLoader(train_dataset, batch_size=3, shuffle=True, pin_memory=True)
 
         # Initialize the network
@@ -54,7 +54,7 @@ def train_classifier(options_map, curr_device):
         iter_log = 0
         nnet.train()
 
-        for epoch in tqdm(range(options_map["iter"])):
+        for epoch in tqdm(range(options_map.iter)):
 
             print(f"========== ITER {epoch + 1} ==========")
 
@@ -92,8 +92,8 @@ def train_classifier(options_map, curr_device):
         writer.close()
 
         # If a test set is given then evaluate the accuracy of the model
-        if options_map["test_folder"]:
-            test_dataset = BreastDataset(data_root_folder=options_map["test_folder"], transform=transformations)
+        if options_map.test_folder:
+            test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations)
             test_data = DataLoader(test_dataset, batch_size=3, shuffle=False, pin_memory=True)
 
             # Evaluate each image batch
