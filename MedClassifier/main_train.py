@@ -50,12 +50,13 @@ def train_classifier(options_map, curr_device):
 
         # Initiate tensorboard writer and start training
         writer = SummaryWriter("tensorboard_logs")
-        iter_log = 0
         nnet.train()
 
         _iter = tqdm(range(options_map.iter))
         for epoch in _iter:
             _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
+
+            curr_loss = 0
 
             for i, batch in enumerate(train_data, 0):
                 # Move batch to gpu
@@ -67,23 +68,17 @@ def train_classifier(options_map, curr_device):
                 # Classify batch, calculate loss and update
                 pred = nnet(images)
                 loss = loss_fn(pred, labels)
+                curr_loss += loss.item()
                 loss.backward()
                 optimizer.step()
 
-                # Write data to tensorboard
-                writer.add_scalar("Loss/train", loss.item(), iter_log)
-                log_metric('Train Loss', loss.item(), step=iter_log)
-                current_grid = make_grid(images)
-                writer.add_image("images", current_grid, iter_log)
-                writer.add_graph(nnet, images)
-
-                # Print data from current batch. Each 100 batches prints results
-                if i % 100 == 0:
-                    print(f"Epoch: {epoch + 1} / Batch: {i + 1} => Loss: {loss.item()}")
-
-                iter_log += 1
-
-            iter_log += 1
+            # Write data to tensorboard
+            writer.add_scalar("Loss/train", loss.item(), epoch+1)
+            log_metric('Train Loss', loss.item(), step=epoch+1)
+            current_grid = make_grid(images)
+            writer.add_image("images", current_grid, epoch+1)
+            writer.add_graph(nnet, images)
+            _iter.set_description(f"Avg Bacth Loss: {curr_loss/i+1}")
 
         # Close the writer and save the model
         model_path = "./current_classifier.pth"
@@ -103,19 +98,23 @@ def train_classifier(options_map, curr_device):
             total_pred = {classname: 0 for classname in classes}
 
             nnet.eval()
+            iter_log = 0
             with torch.no_grad():
                 for batch in test_data:
+
                     images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
                     pred = nnet(images)
                     _, predicted = torch.max(pred.data, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
                     test_loss = loss_fn(pred, labels)
+
                     writer.add_scalar("Loss/test", test_loss.item(), iter_log)
                     log_metric('Test Loss', test_loss.item(), step=iter_log)
                     current_grid = make_grid(images)
                     writer.add_image("images", current_grid, iter_log)
                     writer.add_graph(nnet, images)
+                    iter_log += 1
 
                     # collect the correct predictions for each class
                     for label, prediction in zip(labels, predicted):
