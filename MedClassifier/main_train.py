@@ -85,54 +85,11 @@ def train_classifier(options_map, curr_device):
         torch.save(nnet.state_dict(), model_path)
         writer.close()
 
-        # If a test set is given then evaluate the accuracy of the model
-        if options_map.test_folder:
-            test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations)
-            test_data = DataLoader(test_dataset, batch_size=30, shuffle=False, pin_memory=True)
-
-            # Evaluate each image batch
-            classes = ["benign", "malign", "normal"]
-            correct = 0
-            total = 0
-            correct_pred = {classname: 0 for classname in classes}
-            total_pred = {classname: 0 for classname in classes}
-
-            nnet.eval()
-            iter_log = 0
-            with torch.no_grad():
-                for batch in test_data:
-
-                    images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
-                    pred = nnet(images)
-                    _, predicted = torch.max(pred.data, 1)
-                    total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
-                    test_loss = loss_fn(pred, labels)
-
-                    writer.add_scalar("Loss/test", test_loss.item(), iter_log)
-                    log_metric('Test Loss', test_loss.item(), step=iter_log)
-                    current_grid = make_grid(images)
-                    writer.add_image("images", current_grid, iter_log)
-                    writer.add_graph(nnet, images)
-                    iter_log += 1
-
-                    # collect the correct predictions for each class
-                    for label, prediction in zip(labels, predicted):
-                        if label == prediction:
-                            correct_pred[classes[label]] += 1
-                        total_pred[classes[label]] += 1
-
-            print(f'Accuracy of the network on the test images: {100 * correct // total} %')
-            for classname, correct_count in correct_pred.items():
-                accuracy = 100 * float(correct_count) / total_pred[classname]
-                print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
-
 
 if __name__ == "__main__":
     # Construct argument parser
     arg = ArgumentParser()
     arg.add_argument('--train_folder', help='Train Folder for Classification', type=str, required=True)
-    arg.add_argument('--test_folder', help='Test Folder for Classification', type=str)
     arg.add_argument('--iter', help='Number of Iterations to Train', type=int, required=True)
     opt_map = arg.parse_args()
 
