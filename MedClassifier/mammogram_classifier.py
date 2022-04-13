@@ -8,8 +8,8 @@ class MammogramClassifier(nn.Module):
 
         self.n_classes = n_classes
         self.model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=False)
-        self.fc_layer = nn.Linear(1000, self.n_classes)
+        self.model.fc = nn.Linear(512, self.n_classes)
 
     def forward(self, x):
         x = self.model(x)
-        return self.fc_layer(x)
+        return x
