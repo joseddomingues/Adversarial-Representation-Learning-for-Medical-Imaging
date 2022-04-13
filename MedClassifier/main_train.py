@@ -20,16 +20,19 @@ def train_classifier(options_map, curr_device):
     with start_run(nested=True, run_name=now.strftime("%d_%m_%y_%H_%M_%S")):
 
         # Log parameters to mlflow
+        print("Logging Parameters...", end=" ")
         log_param("N Iterations", options_map.iter)
         log_param("Image Size Training", "614x499")
         log_param("Batch Size", 3)
         log_param("Loss", "Cross Entropy Loss")
         log_param("Optimizer", "Adam")
+        print("Done!")
 
         # Dimensions of the 25% size image
         reduced_images_size = (614, 499)
 
         # Initialize the dataset with the processing for the ResNet approach
+        print("Dataset Preparations...", end=" ")
         transformations = tvt.Compose([
             tvt.Resize(reduced_images_size),
             tvt.ToTensor(),
@@ -38,11 +41,14 @@ def train_classifier(options_map, curr_device):
 
         train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
         train_data = DataLoader(train_dataset, batch_size=30, shuffle=True, pin_memory=True)
+        print("Done!")
 
         # Initialize the network
-        # 4 classes -> Benign, Malign, Normal
+        # 3 classes -> Benign, Malign, Normal
+        print("Creating Classifier...", end=" ")
         nnet = MammogramClassifier(n_classes=3)
         nnet.to(curr_device)
+        print("Done!")
 
         # Create optimizer and loss function
         optimizer = torch.optim.Adam(nnet.parameters())
@@ -52,6 +58,7 @@ def train_classifier(options_map, curr_device):
         writer = SummaryWriter("tensorboard_logs")
         nnet.train()
 
+        print("Initiating Train")
         _iter = tqdm(range(options_map.iter))
         for epoch in _iter:
             _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
@@ -73,14 +80,15 @@ def train_classifier(options_map, curr_device):
                 optimizer.step()
 
             # Write data to tensorboard
-            writer.add_scalar("Loss/train", loss.item(), epoch+1)
-            log_metric('Train Loss', loss.item(), step=epoch+1)
+            writer.add_scalar("Loss/train", loss.item(), epoch + 1)
+            log_metric('Train Loss', loss.item(), step=epoch + 1)
             current_grid = make_grid(images)
-            writer.add_image("images", current_grid, epoch+1)
+            writer.add_image("images", current_grid, epoch + 1)
             writer.add_graph(nnet, images)
-            _iter.set_description(f"Avg Bacth Loss: {curr_loss/i+1}")
+            _iter.set_description(f"Avg Bacth Loss: {curr_loss / i + 1}")
 
         # Close the writer and save the model
+        print("Train Finished. File saved to ./current_classifier.pth")
         model_path = "./current_classifier.pth"
         torch.save(nnet.state_dict(), model_path)
         writer.close()
