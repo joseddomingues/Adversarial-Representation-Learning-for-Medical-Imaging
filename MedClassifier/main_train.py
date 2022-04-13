@@ -41,7 +41,7 @@ class EarlyStopper:
 
         variation = abs(self.losses[-1] - loss)
         self.losses.append(loss)
-        self.last_variationsa.append(variation)
+        self.last_variations.append(variation)
         return True
 
     def stop_train(self):
