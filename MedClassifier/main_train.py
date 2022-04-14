@@ -63,9 +63,9 @@ def train_classifier(options_map, curr_device):
     # Initialize the dataset with the processing for the ResNet approach
     print("Dataset Preparations...", end=" ")
     transformations = tvt.Compose([
-        tvt.Resize(reduced_images_size),
         tvt.ToTensor(),
-        tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        tvt.Resize(reduced_images_size)
     ])
 
     train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
