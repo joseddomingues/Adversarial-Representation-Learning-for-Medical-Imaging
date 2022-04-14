@@ -21,7 +21,7 @@ def evaluate_classifier(options_map, curr_device):
     ])
 
     test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations)
-    test_data = DataLoader(test_dataset, batch_size=30, shuffle=False, pin_memory=True)
+    test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
 
     # Evaluate each image batch
