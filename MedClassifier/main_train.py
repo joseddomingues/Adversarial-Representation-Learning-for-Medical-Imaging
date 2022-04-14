@@ -81,6 +81,7 @@ def train_classifier(options_map, curr_device):
 
     # Create optimizer and loss function
     optimizer = torch.optim.Adam(nnet.parameters())
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10, 0.1)
     loss_fn = nn.CrossEntropyLoss()
 
     # Initiate tensorboard writer, early stopper and start training
@@ -115,6 +116,8 @@ def train_classifier(options_map, curr_device):
             # statistics
             running_loss += loss.item() * images.size(0)
             running_corrects += torch.sum(preds == labels.data)
+
+        lr_scheduler.step()
 
         # Calculate epoch loss and accuracy
         epoch_loss = running_loss / len(train_data)
