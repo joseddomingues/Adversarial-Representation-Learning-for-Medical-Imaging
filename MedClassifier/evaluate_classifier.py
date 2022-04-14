@@ -25,9 +25,7 @@ def evaluate_classifier(options_map, curr_device):
     print("Done!")
 
     # Evaluate each image batch
-    classes = ["benign", "malign", "normal"]
-    correct_pred = {classname: 0 for classname in classes}
-    total_pred = {classname: 0 for classname in classes}
+    # classes = ["benign", "malign", "normal"]
 
     # Load the classifier
     print("Loading Classifier...", end=" ")
@@ -39,28 +37,16 @@ def evaluate_classifier(options_map, curr_device):
 
     print("Initiate Testing")
     with torch.no_grad():
-
         running_corrects = 0
 
         for batch in test_data:
-
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
             running_corrects += torch.sum(predicted == labels.data)
 
-            # collect the correct predictions for each class
-            for label, prediction in zip(labels.data, predicted):
-                if label == prediction:
-                    correct_pred[classes[label]] += 1
-                total_pred[classes[label]] += 1
-
         acc = running_corrects.double() / len(test_data)
-
     print(f'Accuracy of the network on the test images: {acc} %')
-    for classname, correct_count in correct_pred.items():
-        accuracy = 100 * float(correct_count) / total_pred[classname]
-        print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
 
 
 if __name__ == "__main__":

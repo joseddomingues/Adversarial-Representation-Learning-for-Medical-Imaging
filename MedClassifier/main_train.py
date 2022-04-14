@@ -122,7 +122,7 @@ def train_classifier(options_map, curr_device):
         # Calculate epoch loss and accuracy
         epoch_loss = running_loss / len(train_data)
         epoch_acc = running_corrects.double() / len(train_data)
-        print(f'Epoch {epoch + 1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+        print(f'\nEpoch {epoch + 1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 
         # Write data to tensorboard
         writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
