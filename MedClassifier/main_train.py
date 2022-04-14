@@ -95,7 +95,8 @@ def train_classifier(options_map, curr_device):
     for epoch in _iter:
         _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
 
-        curr_loss = 0
+        running_loss = 0.0
+        running_corrects = 0
 
         for i, batch in enumerate(train_data, 0):
             # Move batch to gpu
@@ -107,20 +108,27 @@ def train_classifier(options_map, curr_device):
             # Classify batch, calculate loss and update
             pred = nnet(images)
             loss = loss_fn(pred, labels)
-            curr_loss += loss.item()
+            _, preds = torch.max(pred, 1)
             loss.backward()
             optimizer.step()
 
+            # statistics
+            running_loss += loss.item() * images.size(0)
+            running_corrects += torch.sum(preds == labels.data)
+
+        # Calculate epoch loss and accuracy
+        epoch_loss = running_loss / len(train_data)
+        epoch_acc = running_corrects.double() / len(train_data)
+        print(f'Epoch {epoch+1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+
         # Write data to tensorboard
-        curr_loss = curr_loss / (i + 1)
-        writer.add_scalar("Loss/train", curr_loss, epoch + 1)
+        writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
         current_grid = make_grid(images)
         writer.add_image("images", current_grid, epoch + 1)
         writer.add_graph(nnet, images)
-        print(f"Avg Bacth Loss: {curr_loss}")
 
         # Add loss to early stopper and check if stop
-        early_stopper.add_loss(curr_loss)
+        early_stopper.add_loss(epoch_loss)
 
         if early_stopper.stop_train():
             print("\n\nTRAIN STOPPED =====> CONVERGENCE ACHIEVED")

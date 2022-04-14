@@ -1,11 +1,8 @@
 from argparse import ArgumentParser
 
 import torch
-import torch.nn as nn
 import torchvision.transforms as tvt
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torchvision.utils import make_grid
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
@@ -29,13 +26,8 @@ def evaluate_classifier(options_map, curr_device):
 
     # Evaluate each image batch
     classes = ["benign", "malign", "normal"]
-    correct = 0
-    total = 0
     correct_pred = {classname: 0 for classname in classes}
     total_pred = {classname: 0 for classname in classes}
-
-    # Initiates the loss functions
-    loss_fn = nn.CrossEntropyLoss()
 
     # Load the classifier
     print("Loading Classifier...", end=" ")
@@ -45,32 +37,27 @@ def evaluate_classifier(options_map, curr_device):
     nnet.eval()
     print("Done!")
 
-    writer = SummaryWriter("tensorboard_test_logs")
-    iter_log = 0
     print("Initiate Testing")
     with torch.no_grad():
+
+        running_corrects = 0
+
         for batch in test_data:
 
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-            test_loss = loss_fn(pred, labels)
-
-            writer.add_scalar("Loss/test", test_loss.item(), iter_log)
-            current_grid = make_grid(images)
-            writer.add_image("images", current_grid, iter_log)
-            writer.add_graph(nnet, images)
-            iter_log += 1
+            running_corrects += torch.sum(predicted == labels.data)
 
             # collect the correct predictions for each class
-            for label, prediction in zip(labels, predicted):
+            for label, prediction in zip(labels.data, predicted):
                 if label == prediction:
                     correct_pred[classes[label]] += 1
                 total_pred[classes[label]] += 1
 
-    print(f'Accuracy of the network on the test images: {100 * correct // total} %')
+        acc = running_corrects.double() / len(test_data)
+
+    print(f'Accuracy of the network on the test images: {acc} %')
     for classname, correct_count in correct_pred.items():
         accuracy = 100 * float(correct_count) / total_pred[classname]
         print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
