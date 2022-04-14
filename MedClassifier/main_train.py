@@ -69,7 +69,7 @@ def train_classifier(options_map, curr_device):
     ])
 
     train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
-    train_data = DataLoader(train_dataset, batch_size=30, shuffle=True, pin_memory=True)
+    train_data = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True)
     print("Done!")
 
     # Initialize the network
@@ -81,7 +81,7 @@ def train_classifier(options_map, curr_device):
 
     # Create optimizer and loss function
     optimizer = torch.optim.Adam(nnet.parameters())
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 10, 0.1)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, int(1e10), eta_min=1e-5)
     loss_fn = nn.CrossEntropyLoss()
 
     # Initiate tensorboard writer, early stopper and start training
@@ -122,7 +122,7 @@ def train_classifier(options_map, curr_device):
         # Calculate epoch loss and accuracy
         epoch_loss = running_loss / len(train_data)
         epoch_acc = running_corrects.double() / len(train_data)
-        print(f'Epoch {epoch+1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+        print(f'Epoch {epoch + 1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 
         # Write data to tensorboard
         writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
