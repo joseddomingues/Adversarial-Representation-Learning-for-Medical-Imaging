@@ -68,7 +68,11 @@ def train_classifier(options_map, curr_device):
         tvt.Resize(reduced_images_size)
     ])
 
-    train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations)
+    # Data augmentation techniques. TODO: Change to others to test
+    augmentations = tvt.TrivialAugmentWide()
+
+    train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations,
+                                  augment=augmentations)
     train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
     print("Done!")
 
@@ -86,8 +90,8 @@ def train_classifier(options_map, curr_device):
 
     # Initiate tensorboard writer, early stopper and start training
     writer = SummaryWriter("tensorboard_train_logs")
-    iter_var = 10
-    var_change = 0.001
+    iter_var = 20
+    var_change = 1
     early_stopper = EarlyStopper(iter_threshold=iter_var, min_change=var_change)
     nnet.train()
 
@@ -126,16 +130,17 @@ def train_classifier(options_map, curr_device):
 
         # Write data to tensorboard
         writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
+        writer.add_scalar("Accuracy/train", epoch_acc, epoch + 1)
         current_grid = make_grid(images)
         writer.add_image("images", current_grid, epoch + 1)
         writer.add_graph(nnet, images)
 
         # Add loss to early stopper and check if stop
-        early_stopper.add_loss(epoch_loss)
+        early_stopper.add_loss(epoch_acc)
 
         if early_stopper.stop_train():
             print("\n\nTRAIN STOPPED =====> CONVERGENCE ACHIEVED")
-            print(f"DURING {iter_var} EPOCHS THE LOSS VARIED LESS THAN {var_change}")
+            print(f"DURING {iter_var} EPOCHS THE ACCURACY VARIED LESS THAN {var_change}%")
             break
 
     # Close the writer and save the model

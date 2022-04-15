@@ -33,6 +33,9 @@ class BreastDataset(Dataset):
                     if self.transform:
                         target_image = self.transform(target_image)
 
+                    if self.augment:
+                        target_image = self.augment(target_image)
+
                     self.images.append(target_image)
                     self.images_target.append(self.labels_map[folder])
 
