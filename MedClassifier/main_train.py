@@ -84,6 +84,7 @@ def train_classifier(options_map, curr_device):
     print("Done!")
 
     # Create optimizer and loss function
+    # torch.optim.SGD(nnet.parameters(), lr=1e-3, momentum=0.99)
     optimizer = torch.optim.Adam(nnet.parameters())
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, int(1e10), eta_min=1e-6)
     loss_fn = nn.CrossEntropyLoss()
