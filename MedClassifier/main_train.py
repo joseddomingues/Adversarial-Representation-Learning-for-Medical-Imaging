@@ -68,8 +68,16 @@ def train_classifier(options_map, curr_device):
         tvt.Resize(reduced_images_size)
     ])
 
-    # Data augmentation techniques. TODO: Change to others to test
-    augmentations = tvt.TrivialAugmentWide()
+    # Data augmentation techniques
+    augmentations = tvt.Compose([
+        tvt.RandomHorizontalFlip(),
+        tvt.RandomVerticalFlip(),
+        tvt.RandomAdjustSharpness(2),
+        tvt.RandomApply(transforms=[tvt.ColorJitter(brightness=0.5, hue=0.3)]),
+        tvt.RandomApply(transforms=[tvt.GaussianBlur(kernel_size=(5, 5))]),
+        tvt.RandomPerspective(),
+        tvt.RandomAutocontrast()
+    ])
 
     train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations,
                                   augment=augmentations)
@@ -84,15 +92,18 @@ def train_classifier(options_map, curr_device):
     print("Done!")
 
     # Create optimizer and loss function
-    # torch.optim.SGD(nnet.parameters(), lr=1e-3, momentum=0.99)
-    optimizer = torch.optim.Adam(nnet.parameters())
+    if options_map.optim == 'adam':
+        optimizer = torch.optim.Adam(nnet.parameters())
+    else:
+        optimizer = torch.optim.SGD(nnet.parameters(), lr=1e-3, momentum=0.9)
+
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, int(1e10), eta_min=1e-6)
     loss_fn = nn.CrossEntropyLoss()
 
     # Initiate tensorboard writer, early stopper and start training
     writer = SummaryWriter("tensorboard_train_logs")
     iter_var = 20
-    var_change = 1
+    var_change = 0.01
     early_stopper = EarlyStopper(iter_threshold=iter_var, min_change=var_change)
     nnet.train()
 
@@ -102,7 +113,7 @@ def train_classifier(options_map, curr_device):
         _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
 
         running_loss = 0.0
-        running_corrects = 0
+        total = 0
 
         for i, batch in enumerate(train_data, 0):
             # Move batch to gpu
@@ -119,29 +130,27 @@ def train_classifier(options_map, curr_device):
             optimizer.step()
 
             # statistics
-            running_loss += loss.item() * images.size(0)
-            running_corrects += torch.sum(preds == labels.data)
+            running_loss += loss.item()
+            total += labels.size(0)
 
         lr_scheduler.step()
 
         # Calculate epoch loss and accuracy
-        epoch_loss = running_loss / len(train_data)
-        epoch_acc = running_corrects.double() / len(train_data)
-        print(f'\nEpoch {epoch + 1} =====> Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+        epoch_loss = running_loss / total
+        print(f'\nEpoch {epoch + 1} =====> Loss: {epoch_loss:.4f}')
 
         # Write data to tensorboard
         writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
-        writer.add_scalar("Accuracy/train", epoch_acc, epoch + 1)
         current_grid = make_grid(images)
         writer.add_image("images", current_grid, epoch + 1)
         writer.add_graph(nnet, images)
 
         # Add loss to early stopper and check if stop
-        early_stopper.add_loss(epoch_acc)
+        early_stopper.add_loss(epoch_loss)
 
         if early_stopper.stop_train():
             print("\n\nTRAIN STOPPED =====> CONVERGENCE ACHIEVED")
-            print(f"DURING {iter_var} EPOCHS THE ACCURACY VARIED LESS THAN {var_change}%")
+            print(f"DURING {iter_var} EPOCHS THE LOSS VARIED LESS THAN {var_change}")
             break
 
     # Close the writer and save the model
@@ -156,6 +165,7 @@ if __name__ == "__main__":
     arg = ArgumentParser()
     arg.add_argument('--train_folder', help='Train Folder for Classification', type=str, required=True)
     arg.add_argument('--iter', help='Number of Iterations to Train', type=int, required=True)
+    arg.add_argument('--optim', help='Optimizer to use', default='adam', choices=['adam', 'sgdm'])
     opt_map = arg.parse_args()
 
     # Get current device
