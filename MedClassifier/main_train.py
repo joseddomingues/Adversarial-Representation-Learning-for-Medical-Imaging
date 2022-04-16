@@ -103,7 +103,7 @@ def train_classifier(options_map, curr_device):
     # Initiate tensorboard writer, early stopper and start training
     writer = SummaryWriter("tensorboard_train_logs")
     iter_var = 20
-    var_change = 0.1
+    var_change = 2
     early_stopper = EarlyStopper(iter_threshold=iter_var, min_change=var_change)
     nnet.train()
 
@@ -150,11 +150,11 @@ def train_classifier(options_map, curr_device):
         writer.add_graph(nnet, images)
 
         # Add loss to early stopper and check if stop
-        early_stopper.add_loss(epoch_loss)
+        early_stopper.add_loss(acc)
 
         if early_stopper.stop_train():
             print("\n\nTRAIN STOPPED =====> CONVERGENCE ACHIEVED")
-            print(f"DURING {iter_var} EPOCHS THE LOSS VARIED LESS THAN {var_change}")
+            print(f"DURING {iter_var} EPOCHS THE ACCURACY VARIED LESS THAN {var_change}")
             break
 
     # Close the writer and save the model
