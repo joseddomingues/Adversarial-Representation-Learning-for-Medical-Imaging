@@ -103,7 +103,7 @@ def train_classifier(options_map, curr_device):
     # Initiate tensorboard writer, early stopper and start training
     writer = SummaryWriter("tensorboard_train_logs")
     iter_var = 20
-    var_change = 0.01
+    var_change = 0.1
     early_stopper = EarlyStopper(iter_threshold=iter_var, min_change=var_change)
     nnet.train()
 
