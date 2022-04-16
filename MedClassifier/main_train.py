@@ -113,6 +113,7 @@ def train_classifier(options_map, curr_device):
         _iter.set_description('Iter [{}/{}]:'.format(epoch + 1, options_map.iter))
 
         running_loss = 0.0
+        running_corrects = 0
         total = 0
 
         for i, batch in enumerate(train_data, 0):
@@ -130,17 +131,20 @@ def train_classifier(options_map, curr_device):
             optimizer.step()
 
             # statistics
-            running_loss += loss.item()
+            running_corrects += torch.sum(preds == labels.data)
+            running_loss += loss.item() * labels.size(0)
             total += labels.size(0)
 
         lr_scheduler.step()
 
         # Calculate epoch loss and accuracy
         epoch_loss = running_loss / total
-        print(f'\nEpoch {epoch + 1} =====> Loss: {epoch_loss:.4f}')
+        acc = 100 * running_corrects / total
+        print(f'\nEpoch {epoch + 1} =====> Loss: {epoch_loss:.4f}   Accuracy: {acc} %')
 
         # Write data to tensorboard
         writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
+        writer.add_scalar("Accuracy/train", acc, epoch + 1)
         current_grid = make_grid(images)
         writer.add_image("images", current_grid, epoch + 1)
         writer.add_graph(nnet, images)
