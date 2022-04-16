@@ -7,53 +7,66 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
+import numpy as np
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
 
 
 class EarlyStopper:
-    def __init__(self, iter_threshold, min_change):
-        """
-        Class for the early stop of the training process
-        @param iter_threshold: Number of iterations without variation
-        @param min_change: Minimum variation to stop
-        """
-        self.losses = []
-        self.last_variations = []
-        self.max_iter = iter_threshold
-        self.min_change = min_change
+    """
+    Early stops the training if validation loss doesn't improve after a given patience.
+    https://github.com/Bjarten/early-stopping-pytorch
+    """
 
-    def add_loss(self, loss):
+    def __init__(self, patience=7, verbose=False, delta=0, path='current_classifier.pth', trace_func=print):
         """
-        Adds the loss for the current epoch
-        @param loss: Loss to add
-        @return: True if added correctly
+        Args:
+            patience (int): How long to wait after last time validation loss improved.
+                            Default: 7
+            verbose (bool): If True, prints a message for each validation loss improvement.
+                            Default: False
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+                            Default: 0
+            path (str): Path for the checkpoint to be saved to.
+                            Default: 'checkpoint.pt'
+            trace_func (function): trace print function.
+                            Default: print
         """
-        if len(self.losses) == 0:
-            self.losses.append(loss)
-            self.last_variations.append(abs(loss))
-            return True
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
+        self.path = path
+        self.trace_func = trace_func
 
-        if len(self.losses) == self.max_iter:
-            self.losses.pop(0)
-            self.last_variations.pop(0)
+    def __call__(self, val_loss, model):
 
-        variation = abs(self.losses[-1] - loss)
-        self.losses.append(loss)
-        self.last_variations.append(variation)
-        return True
+        score = -val_loss
 
-    def stop_train(self):
-        """
-        Gets if the train should stop or proceed
-        @return: True if train should stop | False if not
-        """
-        if len(self.last_variations) < self.max_iter:
-            return False
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+            self.counter = 0
 
-        if max(self.last_variations) <= self.min_change:
-            return True
+    def save_checkpoint(self, val_loss, model):
+        '''Saves model when validation loss decrease.'''
+        if self.verbose:
+            self.trace_func(
+                f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+        torch.save(model.state_dict(), self.path)
+        self.val_loss_min = val_loss
 
 
 def train_classifier(options_map, curr_device):
@@ -102,9 +115,8 @@ def train_classifier(options_map, curr_device):
 
     # Initiate tensorboard writer, early stopper and start training
     writer = SummaryWriter("tensorboard_train_logs")
-    iter_var = 20
-    var_change = 2
-    early_stopper = EarlyStopper(iter_threshold=iter_var, min_change=var_change)
+    patience = 10
+    early_stopper = EarlyStopper(patience=patience)
     nnet.train()
 
     print("Initiating Train")
@@ -150,11 +162,11 @@ def train_classifier(options_map, curr_device):
         writer.add_graph(nnet, images)
 
         # Add loss to early stopper and check if stop
-        early_stopper.add_loss(acc)
+        early_stopper(epoch_loss, nnet)
 
-        if early_stopper.stop_train():
+        if early_stopper.early_stop:
             print("\n\nTRAIN STOPPED =====> CONVERGENCE ACHIEVED")
-            print(f"DURING {iter_var} EPOCHS THE ACCURACY VARIED LESS THAN {var_change}")
+            print(f"DURING {patience} EPOCHS THE LOSS NEVER DECREASED")
             break
 
     # Close the writer and save the model
