@@ -367,7 +367,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         schedulerG.step()
 
         if early_stopper.early_stop:
-            print(f"\n\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED")
+            print(f"\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED\n")
             break
 
     # saves the networks

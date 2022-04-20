@@ -326,7 +326,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         schedulerG.step()
 
         if early_stopper.early_stop:
-            print(f"\n\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED")
+            print(f"\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED\n")
             break
 
     if depth+1 == len(reals):
