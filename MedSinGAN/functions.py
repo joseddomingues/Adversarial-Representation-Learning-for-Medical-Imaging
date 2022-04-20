@@ -4,12 +4,15 @@ import math
 import os
 import random
 
+import torchvision.transforms
+from PIL import Image
 import dateutil.tz
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset
 from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
@@ -730,3 +733,26 @@ class EarlyStopper:
                 f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         save_networks(netG, netD, z_opt, opt, g_scaler)
         self.val_loss_min = val_loss
+
+
+class OptimisationPicsDataset(Dataset):
+    def __init__(self, target_shape, image_folder):
+        self.target_shape = target_shape
+        self.image_folder = image_folder
+
+        self.images = os.listdir(self.image_folder)
+        self.images = [os.path.join(self.image_folder, elem) for elem in self.images if ".pth" not in elem]
+
+        self.ready_images = []
+        tensor_converter = torchvision.transforms.ToTensor()
+        for im in self.images:
+            curr = Image.open(im)
+            curr = tensor_converter(curr)
+            curr = curr.reshape(target_shape)
+            self.ready_images.append(curr)
+
+    def __len__(self):
+        return len(self.ready_images)
+
+    def __getitem__(self, idx):
+        return self.ready_images[idx]

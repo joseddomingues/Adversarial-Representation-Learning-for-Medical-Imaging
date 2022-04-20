@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from mlflow import log_param, log_metric, start_run
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
@@ -48,6 +49,11 @@ def train(opt):
 
         # Initiate the generator model and add it to cuda
         generator = init_G(opt)
+        if opt.g_optimizer_folder:
+            for _ in range(opt.train_stages - 1):
+                generator.init_next_stage()
+            generator.load_state_dict(torch.load(os.path.join(opt.g_optimizer_folder, "netG.pth"),
+                                                 map_location="cuda:{}".format(torch.cuda.current_device())))
 
         # Fixed noise and noise ampliation to use
         fixed_noise = []
@@ -56,9 +62,13 @@ def train(opt):
         # Metrics step
         metrics_step = 0
 
+        # If its fine tune then restringe the stages
+        if opt.g_optimizer_folder:
+            opt.start_scale = opt.stop_scale
+
         # For each scale of the number os scales will be used
         # stop_scale - Defined according to adjusting image scales
-        for scale_num in range(opt.stop_scale + 1):
+        for scale_num in range(opt.start_scale, opt.stop_scale + 1):
 
             # Generates the directory to save the outputs and file. Also saves the real image for that scale
             opt.out_ = functions.generate_dir2save(opt)
@@ -74,7 +84,11 @@ def train(opt):
             # Initiates the discriminator.
             # If the scale is bigger than 0 => Load the previous discriminator and init next stage
             d_curr = init_D(opt)
-            if scale_num > 0:
+            if opt.g_optimizer_folder:
+                d_curr.load_state_dict(torch.load(os.path.join(opt.g_optimizer_folder, "netD.pth"),
+                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
+
+            elif scale_num > 0:
                 d_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
                 generator.init_next_stage()
 
@@ -132,6 +146,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
 
+    # If fine tune then prepare set of images to improve the generator
+    if opt.g_optimizer_folder:
+        optimisation_pics = functions.OptimisationPicsDataset(real.shape, opt.g_optimizer_folder)
+        pics_loader = DataLoader(optimisation_pics, shuffle=True, pin_memory=True)
+
     # Get alpha
     alpha = opt.alpha
 
@@ -139,24 +158,30 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     # define z_opt for training on reconstruction
     ###########################
 
-    # If on the beginning then use the first real image scale unless is animation
-    if depth == 0:
-        if opt.train_mode == "generation" or opt.train_mode == "retarget":
-            z_opt = reals[0]
-        elif opt.train_mode == "animation":
-            z_opt = functions.generate_noise([opt.nc_im, reals_shapes[depth][2], reals_shapes[depth][3]],
-                                             device=opt.device).detach()
-
-    # Else then generate noise depending on what is required
+    # If optimization the recover noise
+    if opt.g_optimizer_folder:
+        fixed_noise = torch.load(os.path.join(opt.g_optimizer_folder, "fixed_noise.pth"),
+                                 map_location="cuda:{}".format(torch.cuda.current_device()))
+        z_opt = fixed_noise[depth]
     else:
-        if opt.train_mode == "generation" or opt.train_mode == "animation":
-            z_opt = functions.generate_noise([opt.nfc,
-                                              reals_shapes[depth][2] + opt.num_layer * 2,
-                                              reals_shapes[depth][3] + opt.num_layer * 2],
-                                             device=opt.device)
+        # If on the beginning then use the first real image scale unless is animation
+        if depth == 0:
+            if opt.train_mode == "generation" or opt.train_mode == "retarget":
+                z_opt = reals[0]
+            elif opt.train_mode == "animation":
+                z_opt = functions.generate_noise([opt.nc_im, reals_shapes[depth][2], reals_shapes[depth][3]],
+                                                 device=opt.device).detach()
+
+        # Else then generate noise depending on what is required
         else:
-            z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
-                                             device=opt.device).detach()
+            if opt.train_mode == "generation" or opt.train_mode == "animation":
+                z_opt = functions.generate_noise([opt.nfc,
+                                                  reals_shapes[depth][2] + opt.num_layer * 2,
+                                                  reals_shapes[depth][3] + opt.num_layer * 2],
+                                                 device=opt.device)
+            else:
+                z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
+                                                 device=opt.device).detach()
 
     # Append the noise to the fixed initial noise
     fixed_noise.append(z_opt.detach())
@@ -195,25 +220,29 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     ############################
     # calculate noise_amp
     ###########################
-    if depth == 0:
-        # if the first stage then just append to noise amp
-        noise_amp.append(1)
+    if opt.g_optimizer_folder:
+        noise_amp = torch.load(os.path.join(opt.g_optimizer_folder, "noise_amp.pth"),
+                               map_location="cuda:{}".format(torch.cuda.current_device()))
     else:
-        # if not the first stage append 0 and then generate result using G
-        noise_amp.append(0)
+        if depth == 0:
+            # if the first stage then just append to noise amp
+            noise_amp.append(1)
+        else:
+            # if not the first stage append 0 and then generate result using G
+            noise_amp.append(0)
 
-        z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+            z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
 
-        # define criterion and calculate the loss
-        criterion = nn.MSELoss()
-        rec_loss = criterion(z_reconstruction, real)
+            # define criterion and calculate the loss
+            criterion = nn.MSELoss()
+            rec_loss = criterion(z_reconstruction, real)
 
-        # calculate RMSE, multiply byt the initial amp and change the last one to it
-        RMSE = torch.sqrt(rec_loss).detach()
-        _noise_amp = opt.noise_amp_init * RMSE
+            # calculate RMSE, multiply byt the initial amp and change the last one to it
+            RMSE = torch.sqrt(rec_loss).detach()
+            _noise_amp = opt.noise_amp_init * RMSE
 
-        noise_amp[-1] = _noise_amp
-        del z_reconstruction, rec_loss, RMSE, _noise_amp
+            noise_amp[-1] = _noise_amp
+            del z_reconstruction, rec_loss, RMSE, _noise_amp
 
     # start training
     _iter = tqdm(range(opt.niter))
@@ -231,69 +260,156 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1-D(G(z)))
         ###########################
-        for j in range(opt.Dsteps):
 
-            # train with real
-            netD.zero_grad()
+        if opt.g_optimizer_folder:
 
-            with autocast():
-                output = netD(real)
-                errD_real = -output.mean()
+            for j in range(opt.Dsteps):
 
-                # train with fake
-                # generator only trains in the last iteration of Dsteps
-                if j == opt.Dsteps - 1:
-                    fake = netG(noise, reals_shapes, noise_amp)
-                else:
-                    with torch.no_grad():
+                errD_acc = 0
+
+                for i, t_image in enumerate(pics_loader):
+
+                    t_image = t_image.to('cuda')
+
+                    # train with real
+                    netD.zero_grad()
+
+                    with autocast():
+                        output = netD(t_image)
+                        errD_real = -output.mean()
+
+                        # train with fake
+                        # generator only trains in the last iteration of Dsteps
+                        if j == opt.Dsteps - 1:
+                            fake = netG(noise, reals_shapes, noise_amp)
+                        else:
+                            with torch.no_grad():
+                                fake = netG(noise, reals_shapes, noise_amp)
+
+                        # classify the result from generator
+                        output = netD(fake.detach())
+                        errD_fake = output.mean()
+
+                        # calculate penalty, do backward pass and step
+                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image, fake, opt.lambda_grad, opt.device,
+                                                                       d_scaler)
+
+                    with autocast():
+                        errD_total = errD_real + errD_fake + gradient_penalty
+                        errD_acc += errD_total
+
+                errD_acc /= i
+                d_scaler.scale(errD_acc).backward()
+                d_scaler.step(optimizerD)
+                d_scaler.update()
+
+            del noise
+
+        else:
+
+            for j in range(opt.Dsteps):
+
+                # train with real
+                netD.zero_grad()
+
+                with autocast():
+                    output = netD(real)
+                    errD_real = -output.mean()
+
+                    # train with fake
+                    # generator only trains in the last iteration of Dsteps
+                    if j == opt.Dsteps - 1:
                         fake = netG(noise, reals_shapes, noise_amp)
+                    else:
+                        with torch.no_grad():
+                            fake = netG(noise, reals_shapes, noise_amp)
 
-                # classify the result from generator
-                output = netD(fake.detach())
-                errD_fake = output.mean()
+                    # classify the result from generator
+                    output = netD(fake.detach())
+                    errD_fake = output.mean()
 
-                # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device, d_scaler)
+                    # calculate penalty, do backward pass and step
+                gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device,
+                                                                   d_scaler)
 
-            with autocast():
-                errD_total = errD_real + errD_fake + gradient_penalty
+                with autocast():
+                    errD_total = errD_real + errD_fake + gradient_penalty
 
-            d_scaler.scale(errD_total).backward()
-            d_scaler.step(optimizerD)
-            d_scaler.update()
+                d_scaler.scale(errD_total).backward()
+                d_scaler.step(optimizerD)
+                d_scaler.update()
 
-        del noise
+            del noise
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
 
-        # Once again classify the fake after update
-        with autocast():
-            output = netD(fake)
-            errG = -output.mean()
-            del fake
+        if opt.g_optimizer_folder:
 
-            # having alpha != 0 then generate new output from noise and calculate MSE
-            if alpha != 0:
-                loss = nn.MSELoss()
-                rec = netG(fixed_noise, reals_shapes, noise_amp)
-                rec_loss = alpha * loss(rec, real)
-            else:
-                rec_loss = 0
+            errG_acc = 0
 
-        # zero grads and apply backward pass
-        netG.zero_grad()
+            for i, t_image in enumerate(pics_loader, 1):
 
-        with autocast():
-            errG_total = errG + rec_loss
+                t_image = t_image.to('cuda')
 
-        g_scaler.scale(errG_total).backward()
+                # Once again classify the fake after update
+                with autocast():
+                    output = netD(fake)
+                    errG = -output.mean()
+                    del fake
 
-        # optimizer applied G number of steps
-        for _ in range(opt.Gsteps):
-            g_scaler.step(optimizerG)
-            g_scaler.update()
+                    # having alpha != 0 then generate new output from noise and calculate MSE
+                    if alpha != 0:
+                        loss = nn.MSELoss()
+                        rec = netG(fixed_noise, reals_shapes, noise_amp)
+                        rec_loss = alpha * loss(rec, t_image)
+                    else:
+                        rec_loss = 0
+
+                # zero grads and apply backward pass
+                netG.zero_grad()
+
+                with autocast():
+                    errG_total = errG + rec_loss
+                    errG_acc += errG_total
+
+            errG_acc /= i
+            g_scaler.scale(errG_acc).backward()
+
+            # optimizer applied G number of steps
+            for _ in range(opt.Gsteps):
+                g_scaler.step(optimizerG)
+                g_scaler.update()
+
+        else:
+
+            # Once again classify the fake after update
+            with autocast():
+                output = netD(fake)
+                errG = -output.mean()
+                del fake
+
+                # having alpha != 0 then generate new output from noise and calculate MSE
+                if alpha != 0:
+                    loss = nn.MSELoss()
+                    rec = netG(fixed_noise, reals_shapes, noise_amp)
+                    rec_loss = alpha * loss(rec, real)
+                else:
+                    rec_loss = 0
+
+            # zero grads and apply backward pass
+            netG.zero_grad()
+
+            with autocast():
+                errG_total = errG + rec_loss
+
+            g_scaler.scale(errG_total).backward()
+
+            # optimizer applied G number of steps
+            for _ in range(opt.Gsteps):
+                g_scaler.step(optimizerG)
+                g_scaler.update()
 
         ############################
         # (3) Log Metrics
@@ -331,7 +447,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             print(f"\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED BETWEEN BOTH NETWORKS\n")
             break
 
-    if depth+1 == len(reals):
+    if depth + 1 == len(reals):
         evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth),
                                         adjust_sizes=True)
         log_metric('FID', evaluator.run_fid(), step=iter + 1)

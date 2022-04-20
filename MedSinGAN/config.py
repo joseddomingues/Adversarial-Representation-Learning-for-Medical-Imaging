@@ -15,6 +15,7 @@ def get_arguments():
     parser.add_argument('--experiment_name', help='Experiment Name For MLFlow', type=str, default='Experiment_1')
     parser.add_argument('--convergence_patience', help='Number of epochs of convergence patience',
                         type=int, default=2000)
+    parser.add_argument('--g_optimizer_folder', type=str, help='Folder for generator to optimize')
 
     # stage hyper parameters:
     parser.add_argument('--nfc', type=int, help='number of filters (channels) per conv layer', default=64)
