@@ -698,7 +698,7 @@ class EarlyStopper:
 
     def __call__(self, val_loss, netG, netD, z_opt, opt, g_scaler):
 
-        score = -val_loss
+        score = -abs(val_loss)
 
         if self.best_score is None:
             self.best_score = score
