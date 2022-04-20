@@ -233,7 +233,8 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
     # start training
     _iter = tqdm(range(opt.niter))
     early_stop_patience = opt.convergence_patience
-    early_stopper = functions.EarlyStopper(patience=early_stop_patience)
+    g_early_stopper = functions.EarlyStopper(patience=early_stop_patience)
+    d_early_stopper = functions.EarlyStopper(patience=early_stop_patience)
     for iter in _iter:
         _iter.set_description('stage [{}/{}]:'.format(depth, opt.stop_scale))
 
@@ -341,7 +342,8 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         log_metric('Generator Train Loss', errG.item(), step=metrics_step)
         log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=metrics_step)
         log_metric('Generator Loss', errG_total.item(), step=metrics_step)
-        early_stopper(errG_total.item(), netG, netD, z_opt, opt, g_scaler)
+        g_early_stopper(errG_total.item(), netG, netD, z_opt, opt, g_scaler)
+        d_early_stopper(errD_total.item(), netG, netD, z_opt, opt, g_scaler)
         metrics_step += 1
 
         ############################
@@ -366,12 +368,12 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         schedulerD.step()
         schedulerG.step()
 
-        if early_stopper.early_stop:
-            print(f"\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED\n")
+        if g_early_stopper.early_stop and d_early_stopper.early_stop:
+            print(f"\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED BETWEEN BOTH NETWORKS\n")
             break
 
     # saves the networks
-    if not early_stopper.early_stop:
+    if not g_early_stopper.early_stop or not d_early_stopper.early_stop:
         functions.save_networks(netG, netD, z_opt, opt, g_scaler)
         
     return fixed_noise, noise_amp, netG, netD
