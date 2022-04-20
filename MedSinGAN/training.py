@@ -217,6 +217,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
     # start training
     _iter = tqdm(range(opt.niter))
+    early_stop_patience = 10
+    early_stopper = functions.EarlyStopper(patience=early_stop_patience)
     for iter in _iter:
         _iter.set_description('stage [{}/{}]:'.format(depth, opt.stop_scale))
 
@@ -302,6 +304,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('Generator Train Loss', errG.item(), step=metrics_step)
         log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=metrics_step)
         log_metric('Generator Loss', errG_total.item(), step=metrics_step)
+        early_stopper(errG_total.item(), netG, netD, z_opt, opt, g_scaler)
         metrics_step += 1
 
         ############################
@@ -322,18 +325,23 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         schedulerD.step()
         schedulerG.step()
 
-    if depth + 1 == len(reals):
-        evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth),
-                                        adjust_sizes=True)
-        log_metric('FID', evaluator.run_fid(), step=iter + 1)
-        log_metric('LPIPS', evaluator.run_lpips(), step=iter + 1)
-        ssim, ms_ssim = evaluator.run_mssim()
-        log_metric('SSIM', ssim, step=iter + 1)
-        log_metric('MS-SSIM', ms_ssim, step=iter + 1)
-        # break
+        if early_stopper.early_stop:
+            print(F"\n\nTRAIN OF STAGE {depth + 1} STOPPED =====> CONVERGENCE ACHIEVED")
+            print(f"DURING {early_stop_patience} EPOCHS THE GENERATOR LOSS NEVER DECREASED")
+            break
+
+    evaluator = GenerationEvaluator(opt.input_name, '{}/gen_samples_stage_{}'.format(opt.out_, depth),
+                                    adjust_sizes=True)
+    log_metric('FID', evaluator.run_fid(), step=iter + 1)
+    log_metric('LPIPS', evaluator.run_lpips(), step=iter + 1)
+    ssim, ms_ssim = evaluator.run_mssim()
+    log_metric('SSIM', ssim, step=iter + 1)
+    log_metric('MS-SSIM', ms_ssim, step=iter + 1)
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+    if not early_stopper.early_stop:
+        functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+
     return fixed_noise, noise_amp, netG, netD
 
 
