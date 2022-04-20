@@ -232,7 +232,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
     # start training
     _iter = tqdm(range(opt.niter))
-    early_stop_patience = 100
+    early_stop_patience = opt.convergence_patience
     early_stopper = functions.EarlyStopper(patience=early_stop_patience)
     for iter in _iter:
         _iter.set_description('stage [{}/{}]:'.format(depth, opt.stop_scale))
@@ -367,8 +367,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         schedulerG.step()
 
         if early_stopper.early_stop:
-            print(F"\n\nTRAIN OF STAGE {depth + 1} STOPPED =====> CONVERGENCE ACHIEVED")
-            print(f"DURING {early_stop_patience} EPOCHS THE GENERATOR LOSS NEVER DECREASED")
+            print(f"\n\nTRAIN OF STAGE {depth} STOPPED =====> CONVERGENCE ACHIEVED")
             break
 
     # saves the networks
