@@ -76,13 +76,13 @@ def train_classifier(options_map, curr_device):
     # Initialize the dataset with the processing for the ResNet approach
     print("Dataset Preparations...", end=" ")
     transformations = tvt.Compose([
-        tvt.ToTensor(),
-        tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        tvt.Resize(reduced_images_size)
+        tvt.Resize(reduced_images_size),
+        tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     # Data augmentation techniques
     augmentations = tvt.Compose([
+        tvt.ToTensor(),
         tvt.RandomHorizontalFlip(),
         tvt.RandomVerticalFlip(),
         tvt.RandomAdjustSharpness(2),

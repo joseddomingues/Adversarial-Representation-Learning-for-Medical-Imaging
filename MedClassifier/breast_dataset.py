@@ -1,6 +1,7 @@
 import os
 
 from torch.utils.data import Dataset
+import torchvision.transforms as tvt
 from PIL import Image
 
 
@@ -30,11 +31,15 @@ class BreastDataset(Dataset):
 
                     # Reads the current image and preprocess it just in case
                     target_image = Image.open(curr_image_path)
-                    if self.transform:
-                        target_image = self.transform(target_image)
 
                     if self.augment:
                         target_image = self.augment(target_image)
+                    else:
+                        converter = tvt.ToTensor()
+                        target_image = converter(target_image)
+
+                    if self.transform:
+                        target_image = self.transform(target_image)
 
                     self.images.append(target_image)
                     self.images_target.append(self.labels_map[folder])
