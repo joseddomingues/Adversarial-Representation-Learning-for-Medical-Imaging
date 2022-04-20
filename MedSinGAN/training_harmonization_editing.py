@@ -232,7 +232,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
     # start training
     _iter = tqdm(range(opt.niter))
-    early_stop_patience = 10
+    early_stop_patience = 50
     early_stopper = functions.EarlyStopper(patience=early_stop_patience)
     for iter in _iter:
         _iter.set_description('stage [{}/{}]:'.format(depth, opt.stop_scale))
