@@ -701,7 +701,10 @@ class EarlyStopper:
 
     def __call__(self, val_loss, netG, netD, z_opt, opt, g_scaler):
 
-        score = -abs(val_loss)
+        if val_loss < 0:
+            score = val_loss
+        else:
+            score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
@@ -748,6 +751,8 @@ class OptimisationPicsDataset(Dataset):
         for im in self.images:
             curr = Image.open(im)
             curr = tensor_converter(curr)
+
+            # TODO: Testing with resizing instead of reshaping
             curr = curr.reshape(target_shape)
             self.ready_images.append(curr)
 
