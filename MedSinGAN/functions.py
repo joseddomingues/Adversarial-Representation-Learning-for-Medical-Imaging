@@ -753,7 +753,7 @@ class OptimisationPicsDataset(Dataset):
             curr = tensor_converter(curr)
 
             # TODO: Testing with resizing instead of reshaping
-            curr = curr.reshape(target_shape)
+            curr = curr.resize(target_shape)
             self.ready_images.append(curr)
 
     def __len__(self):
