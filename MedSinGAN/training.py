@@ -267,9 +267,9 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
                 errD_acc = 0
 
-                for i, t_image in enumerate(pics_loader):
+                for i, l_image in enumerate(pics_loader):
 
-                    t_image = t_image.to('cuda')
+                    t_image = torch.clone(l_image).to('cuda')
 
                     # train with real
                     netD.zero_grad()
@@ -291,12 +291,16 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                         errD_fake = output.mean()
 
                         # calculate penalty, do backward pass and step
-                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image[0], fake, opt.lambda_grad, opt.device,
+                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image[0], fake, opt.lambda_grad,
+                                                                       opt.device,
                                                                        d_scaler)
 
                     with autocast():
                         errD_total = errD_real + errD_fake + gradient_penalty
                         errD_acc += errD_total
+
+                    del t_image
+                    torch.cuda.empty_cache()
 
                 errD_acc /= i
                 d_scaler.scale(errD_acc).backward()
@@ -349,9 +353,9 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
             errG_acc = 0
 
-            for i, t_image in enumerate(pics_loader, 1):
+            for i, l_image in enumerate(pics_loader, 1):
 
-                t_image = t_image.to('cuda')
+                t_image = torch.clone(l_image).to('cuda')
 
                 # Once again classify the fake after update
                 with autocast():
@@ -373,6 +377,9 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 with autocast():
                     errG_total = errG + rec_loss
                     errG_acc += errG_total
+
+                del t_image
+                torch.cuda.empty_cache()
 
             errG_acc /= i
             g_scaler.scale(errG_acc).backward()
