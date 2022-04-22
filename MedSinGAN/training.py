@@ -275,7 +275,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                     netD.zero_grad()
 
                     with autocast():
-                        output = netD(t_image)
+                        output = netD(t_image[0])
                         errD_real = -output.mean()
 
                         # train with fake
