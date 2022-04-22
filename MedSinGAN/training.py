@@ -291,7 +291,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                         errD_fake = output.mean()
 
                         # calculate penalty, do backward pass and step
-                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image, fake, opt.lambda_grad, opt.device,
+                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image[0], fake, opt.lambda_grad, opt.device,
                                                                        d_scaler)
 
                     with autocast():
@@ -363,7 +363,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                     if alpha != 0:
                         loss = nn.MSELoss()
                         rec = netG(fixed_noise, reals_shapes, noise_amp)
-                        rec_loss = alpha * loss(rec, t_image)
+                        rec_loss = alpha * loss(rec, t_image[0])
                     else:
                         rec_loss = 0
 
