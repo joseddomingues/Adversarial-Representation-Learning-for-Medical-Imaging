@@ -39,10 +39,11 @@ def perform_generation(target_image, model_configurations):
     os.chdir("MedSinGAN")
 
     # Get input core name
+    training_image = os.path.join("..", target_image)
     core_name = get_image_core_name(target_image)
 
     # Train model on normal image
-    command = f"python main_train.py --train_mode generation --input_name {target_image} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --convergence_patience {model_configurations['convergence_patience']} --batch_norm --gpu 0 "
+    command = f"python main_train.py --train_mode generation --input_name {training_image} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --convergence_patience {model_configurations['convergence_patience']} --batch_norm --gpu 0 "
     for path in execute_bash_command(command.split()):
         print(path, end="")
 
@@ -82,7 +83,7 @@ def perform_generation(target_image, model_configurations):
 # COLLAGE
 ################################################
 
-def perform_pipeline_collage(base_folder):
+def perform_pipeline_collage(base_folder, base_image):
     """
     Performs collages with benign and malign images in the base folder, in the base images folder
     @param base_folder: Input folder with benign and malign mammography along segmentation
@@ -106,43 +107,37 @@ def perform_pipeline_collage(base_folder):
     for normal in os.listdir(GENERATED_FOLDER):
 
         for benign_image in benign_images:
-            curr_normal = os.path.join(GENERATED_FOLDER, normal)
             curr_benign = benign_image
             curr_benign_mask = benign_image.replace(".png", "_mask.png")
 
-            if perform_collage(curr_normal, curr_benign, curr_benign_mask) == 1:
+            if perform_collage(base_image, curr_benign, curr_benign_mask) == 1:
                 # Copy collage and mask to respective folder with respective name
-                shutil.copy("collage.png", os.path.join(COLLAGES_FOLDER, f"benign_collage_{ids}.png"))
-                shutil.copy("collage_mask.png", os.path.join(COLLAGES_FOLDER, f"benign_collage_{ids}_mask.png"))
+                shutil.move("collage.png", os.path.join(COLLAGES_FOLDER, f"benign_collage_{ids}.png"))
+                shutil.move("collage_mask.png", os.path.join(COLLAGES_FOLDER, f"benign_collage_{ids}_mask.png"))
                 ids += 1
 
             else:
                 print(f"Skipping collage between {normal} and {benign_image}!")
 
         for malign_image in malign_images:
-            curr_normal = os.path.join(GENERATED_FOLDER, normal)
             curr_malign = malign_image
             curr_malign_mask = malign_image.replace(".png", "_mask.png")
 
-            if perform_collage(curr_normal, curr_malign, curr_malign_mask) == 1:
+            if perform_collage(base_image, curr_malign, curr_malign_mask) == 1:
                 # Copy collage and mask to respective folder with respective name
-                shutil.copy("collage.png", os.path.join(COLLAGES_FOLDER, f"malign_collage_{ids}.png"))
-                shutil.copy("collage_mask.png", os.path.join(COLLAGES_FOLDER, f"malign_collage_{ids}_mask.png"))
+                shutil.move("collage.png", os.path.join(COLLAGES_FOLDER, f"malign_collage_{ids}.png"))
+                shutil.move("collage_mask.png", os.path.join(COLLAGES_FOLDER, f"malign_collage_{ids}_mask.png"))
                 ids += 1
 
             else:
                 print(f"Skipping collage between {normal} and {malign_image}!")
-
-    # Remove the last collage and its mask
-    os.remove("collage_mask.png")
-    os.remove("collage.png")
 
 
 ################################################
 # HARMONISATION
 ################################################
 
-def perform_harmonisation(model_configurations):
+def perform_harmonisation(base_image, model_configurations):
     """
     Performs the harmonisation process on the made collages
     @param model_configurations: Harmoniser model configurations
@@ -152,91 +147,118 @@ def perform_harmonisation(model_configurations):
     # Change to the correct directory
     os.chdir("MedSinGAN")
 
-    for folder in os.listdir(os.path.join("..", MAIN_COLLAGE_FOLDER)):
+    # Harmonise training with the current base image
+    cmd = f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {model_configurations['stages']} --train_depth {model_configurations['concurrent']} --im_min_size {model_configurations['im_min_size']} --im_max_size {model_configurations['im_max_size']} --activation {model_configurations['act_func']} --lrelu_alpha {model_configurations['lrelu_alpha']} --niter {model_configurations['niter']} --convergence_patience {model_configurations['convergence_patience']} --batch_norm --input_name {os.path.join('..', base_image)}"
+    for path in execute_bash_command(cmd.split()):
+        print(path, end="")
 
-        # Create folder for harmonised images
-        current_target = os.path.join("..", MAIN_HARMONISATION_FOLDER, folder)
+    # Harmonise the naive collage
+    core_name = get_image_core_name(base_image)
+    latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-        if not os.path.exists(current_target):
-            os.mkdir(current_target)
+    collages = [col for col in os.listdir(os.path.join("..", COLLAGES_FOLDER)) if "collage" in col if
+                "_mask" not in col if not col.startswith(".")]
 
-        # Harmonise training with the current base image
-        cmd = f"python main_train.py --train_mode harmonization --gpu 0 --train_stages {model_configurations['stages']} --train_depth {model_configurations['concurrent']} --im_min_size {model_configurations['im_min_size']} --im_max_size {model_configurations['im_max_size']} --activation {model_configurations['act_func']} --lrelu_alpha {model_configurations['lrelu_alpha']} --niter {model_configurations['niter']} --convergence_patience {model_configurations['convergence_patience']} --batch_norm --input_name {os.path.join('..', MAIN_COLLAGE_FOLDER, folder, 'base_image.png')}"
+    for collage in collages:
+        harmonise_cmd = f"python evaluate_model.py --gpu 0 --model_dir {latest_model} --naive_img {os.path.join('..', COLLAGES_FOLDER, collage)}"
 
-        for path in execute_bash_command(cmd.split()):
+        for path in execute_bash_command(harmonise_cmd.split()):
             print(path, end="")
 
-        # Harmonise the naive collage
-        latest_model = get_latest_model(base_path="TrainedModels/base_image")
-        collages = [col for col in os.listdir(os.path.join("..", MAIN_COLLAGE_FOLDER, folder)) if "collage" in col if
-                    "_mask" not in col if not col.startswith(".")]
-
-        for collage in collages:
-            harmonise_cmd = "python evaluate_model.py --gpu 0 --model_dir " + str(
-                latest_model) + " --naive_img " + os.path.join("..", MAIN_COLLAGE_FOLDER, folder, collage)
-
-            for path in execute_bash_command(harmonise_cmd.split()):
-                print(path, end="")
-
-            target_harmonised = os.path.join(get_latest_model("TrainedModels/base_image"), "Evaluation_..",
-                                             MAIN_COLLAGE_FOLDER, folder,
-                                             collage, "harmonized_w_mask.jpg")
-            shutil.move(target_harmonised, os.path.join(current_target, collage.replace(".png", "_harmonised.png")))
-
-        # Remove unnecessary folders from current generation
-        command = "rm -r mlruns TrainedModels"
-        for path in execute_bash_command(command.split()):
-            print(path, end="")
+        target_harmonised = os.path.join(latest_model, "Evaluation_..", "notebooks", collage, "harmonized_w_mask.jpg")
+        shutil.move(target_harmonised,
+                    os.path.join("..", HARMONISED_FOLDER, collage.replace(".png", "_harmonised.png")))
 
     os.chdir("..")
 
 
-def do_collage_generation(model_configurations):
-    """
-    Perform the generation process over the collages made previously
-    @param model_configurations: Model configurations for the generator
-    @return: -
+def perform_optimisation(model_configurations, target_image):
     """
 
-    for folder in os.listdir(MAIN_HARMONISATION_FOLDER):
+    @param model_configurations:
+    @return:
+    """
 
-        for harmonised_image in os.listdir(os.path.join(MAIN_HARMONISATION_FOLDER, folder)):
+    # Copy files to respective folders
+    benign_harmonised = [os.path.join(HARMONISED_FOLDER, elem) for elem in os.listdir(HARMONISED_FOLDER) if
+                         "benign" in elem if not elem.startswith(".")]
+    malign_harmonised = [os.path.join(HARMONISED_FOLDER, elem) for elem in os.listdir(HARMONISED_FOLDER) if
+                         "malign" in elem if not elem.startswith(".")]
 
-            if harmonised_image.startswith("."):
-                continue
+    for benign in benign_harmonised:
+        shutil.copy(benign, OPTIMISATION_BENIGN)
 
-            curr_target = os.path.join(MAIN_COLLAGE_GENERATION_FOLDER, folder)
-            if not os.path.exists(curr_target):
-                os.mkdir(curr_target)
+    for malign in malign_harmonised:
+        shutil.copy(malign, OPTIMISATION_MALIGN)
 
-            curr_target = os.path.join(curr_target, harmonised_image.split(".")[0])
-            if not os.path.exists(curr_target):
-                os.mkdir(curr_target)
+    os.chdir("MedSinGAN")
 
-            os.chdir("MedSinGAN")
+    # Optimise for the benign images
+    command = f"python main_train.py --train_mode generation --input_name {os.path.join('..', target_image)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_BENIGN)} --gpu 0 "
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
-            command = f"python main_train.py --train_mode generation --input_name {os.path.join('..', MAIN_HARMONISATION_FOLDER, folder, harmonised_image)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --gpu 0 "
-            for path in execute_bash_command(command.split()):
-                print(path, end="")
+    core_name = get_image_core_name(target_image)
+    latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-            core_name = get_image_core_name(harmonised_image)
-            latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
-            best_images_path = f"{latest_model}/gen_samples_stage_{model_configurations['stages'] - 1}"
-            for generated_image in os.listdir(best_images_path):
-                if not generated_image.startswith("."):
-                    shutil.move(os.path.join(best_images_path, generated_image), os.path.join("..", curr_target))
+    # Associate the benign folder to the main generators variable
+    main_generators["benign"] = latest_model
 
-            # Remove unnecessary folders from current generation
-            command = "rm -r mlruns TrainedModels"
-            for path in execute_bash_command(command.split()):
-                print(path, end="")
+    # Optimise for the malign images
+    command = f"python main_train.py --train_mode generation --input_name {os.path.join('..', target_image)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_MALIGN)} --gpu 0 "
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
-            os.chdir("..")
+    core_name = get_image_core_name(target_image)
+    latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
+
+    # Associate the benign folder to the main generators variable
+    main_generators["malign"] = latest_model
+
+    os.chdir("..")
+
+
+def final_generation(samples_to_generate):
+    os.chdir("MedSinGAN")
+    samples_dir = "Evaluation_/random_samples"
+
+    # Generate benign samples
+    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['benign']} --num_samples {samples_to_generate}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
+
+    # move images to correct folder
+    for sample in os.listdir(os.path.join(main_generators['benign'], samples_dir)):
+        if not sample.startswith("."):
+            shutil.move(os.path.join(main_generators['benign'], samples_dir, sample), os.path.join("..", BENIGN_OUTPUT))
+
+    # Generate malign samples
+    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['malign']} --num_samples {samples_to_generate}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
+
+    # move images to correct folder
+    for sample in os.listdir(os.path.join(main_generators['malign'], samples_dir)):
+        if not sample.startswith("."):
+            shutil.move(os.path.join(main_generators['malign'], samples_dir, sample), os.path.join("..", MALIGN_OUTPUT))
+
+    # Generate normal samples
+    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['normal']} --num_samples {samples_to_generate}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
+
+        # move images to correct folder
+        for sample in os.listdir(os.path.join(main_generators['normal'], samples_dir)):
+            if not sample.startswith("."):
+                shutil.move(os.path.join(main_generators['normal'], samples_dir, sample),
+                            os.path.join("..", NORMAL_OUTPUT))
 
 
 if __name__ == "__main__":
     args = ArgumentParser()
     args.add_argument("--data_folder", type=str, required=True, help="Folder where data is. Organisation sensitive.")
+    args.add_argument("--samples_for_output", type=int, required=True,
+                      help="Number of samples for each mammography type")
     args.add_argument("--pipeline_config", type=str, required=True,
                       help="Pipeline Configurations YAML file. Organisation Sensitive")
 
@@ -274,37 +296,29 @@ if __name__ == "__main__":
     # Perform generation training for each image type
     target_normal = os.listdir(os.path.join(opt_map.data_folder, "normal"))
     target_normal = [elem for elem in target_normal if not elem.startswith(".")]
-    target_normal = os.path.join(opt_map.data_folder, target_normal[0])
+    target_normal = os.path.join(opt_map.data_folder, "normal", target_normal[0])
     perform_generation(target_normal, configurations['generation'])
 
     #######################################
     # COLLAGE
     #######################################
 
-    # Perform collages
-    perform_pipeline_collage(opt_map.data_folder)
+    perform_pipeline_collage(opt_map.data_folder, target_normal)
 
     #######################################
     # HARMONISATION
     #######################################
 
-    # Check if folders exist or not. Create them if not
-    if not os.path.exists(MAIN_HARMONISATION_FOLDER):
-        os.mkdir(MAIN_HARMONISATION_FOLDER)
-
-    # Performs harmonisation
-    perform_harmonisation(configurations['harmonisation'])
+    perform_harmonisation(target_normal, configurations['harmonisation'])
 
     #######################################
-    # GENERATION - II
+    # OPTIMISATION
     #######################################
 
-    # Check if folders exist or not. Create them if not
-    if not os.path.exists(MAIN_COLLAGE_GENERATION_FOLDER):
-        os.mkdir(MAIN_COLLAGE_GENERATION_FOLDER)
+    perform_optimisation(configurations['generation'], target_normal)
 
-    if not os.path.exists(os.path.join(MAIN_GENERATION_FOLDER, DATA_FOLDER_NORMAL)):
-        os.mkdir(os.path.join(MAIN_GENERATION_FOLDER, DATA_FOLDER_NORMAL))
+    #######################################
+    # FINAL GENERATION
+    #######################################
 
-    # Perform generation training for each image type
-    do_collage_generation(configurations['generation'])
+    final_generation(opt_map.samples_for_output)
