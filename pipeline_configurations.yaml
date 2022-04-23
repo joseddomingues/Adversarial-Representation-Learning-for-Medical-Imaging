@@ -4,6 +4,8 @@ generation:
   stages: 24
   concurrent: 20
   act_func: prelu
+  n_samples_generate: 3
+  im_max_size: 614
 
 # Segmentation Configurations
 segmentation:
@@ -21,4 +23,3 @@ harmonisation:
   im_min_size: 120
   im_max_size: 614
   lrelu_alpha: 0.3
-
