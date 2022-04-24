@@ -165,7 +165,7 @@ def perform_harmonisation(base_image, model_configurations):
         for path in execute_bash_command(harmonise_cmd.split()):
             print(path, end="")
 
-        target_harmonised = os.path.join(latest_model, "Evaluation_..", "notebooks", collage, "harmonized_w_mask.jpg")
+        target_harmonised = os.path.join(latest_model, "Evaluation_..", COLLAGES_FOLDER, collage, "harmonized_w_mask.jpg")
         shutil.move(target_harmonised,
                     os.path.join("..", HARMONISED_FOLDER, collage.replace(".png", "_harmonised.png")))
 
