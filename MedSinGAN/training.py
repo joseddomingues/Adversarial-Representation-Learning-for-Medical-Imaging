@@ -361,7 +361,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 with autocast():
                     output = netD(fake)
                     errG = -output.mean()
-                    del fake
 
                     # having alpha != 0 then generate new output from noise and calculate MSE
                     if alpha != 0:
