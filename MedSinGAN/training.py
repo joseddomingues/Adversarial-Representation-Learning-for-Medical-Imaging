@@ -265,6 +265,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
             for j in range(opt.Dsteps):
 
+                errD_acc = 0
+
                 for i, l_image in enumerate(pics_loader):
 
                     t_image = torch.clone(l_image).to('cuda')
@@ -295,13 +297,15 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
                     with autocast():
                         errD_total = errD_real + errD_fake + gradient_penalty
-
-                    d_scaler.scale(errD_total).backward()
-                    d_scaler.step(optimizerD)
-                    d_scaler.update()
+                        errD_acc += errD_total
 
                     del t_image
                     torch.cuda.empty_cache()
+
+                errD_acc /= i
+                d_scaler.scale(errD_acc).backward()
+                d_scaler.step(optimizerD)
+                d_scaler.update()
 
             del noise
 
@@ -347,6 +351,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
         if opt.g_optimizer_folder:
 
+            errG_acc = 0
+
             for i, l_image in enumerate(pics_loader, 1):
 
                 t_image = torch.clone(l_image).to('cuda')
@@ -369,11 +375,13 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
                 with autocast():
                     errG_total = errG + rec_loss
-
-                g_scaler.scale(errG_total).backward(retain_graph=True)
+                    errG_acc += errG_total
 
                 del t_image
                 torch.cuda.empty_cache()
+
+            errG_acc /= i
+            g_scaler.scale(errG_acc).backward()
 
             # optimizer applied G number of steps
             for _ in range(opt.Gsteps):
