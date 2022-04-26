@@ -370,7 +370,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 with autocast():
                     errG_total = errG + rec_loss
 
-                g_scaler.scale(errG_total).backward()
+                g_scaler.scale(errG_total).backward(retain_graph=True)
 
                 del t_image
                 torch.cuda.empty_cache()
