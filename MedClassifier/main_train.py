@@ -86,7 +86,8 @@ def train_classifier(options_map, curr_device):
         tvt.RandomHorizontalFlip(),
         tvt.RandomVerticalFlip(),
         tvt.RandomAdjustSharpness(2),
-        tvt.RandomApply(transforms=[tvt.ColorJitter(brightness=0.5, hue=0.3)]),
+        tvt.RandomApply(transforms=[
+            tvt.ColorJitter(brightness=[0.5, 0.99], hue=[0.3, 0.5], contrast=[0.5, 0.99], saturation=[0.5, 0.99])]),
         tvt.RandomApply(transforms=[tvt.GaussianBlur(kernel_size=(5, 5))]),
         tvt.RandomPerspective(),
         tvt.RandomAutocontrast()
