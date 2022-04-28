@@ -20,3 +20,4 @@ pandas
 pydicom
 torchsummary
 pyyaml
+scikit-learn

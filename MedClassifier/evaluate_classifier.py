@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
+from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
 
 
 def evaluate_classifier(options_map, curr_device):
@@ -51,14 +52,18 @@ def evaluate_classifier(options_map, curr_device):
     print("Done!")
 
     print("Initiate Testing")
+    running_corrects = 0
+    total = 0
+    y_trues = []
+    y_preds = []
     with torch.no_grad():
-        running_corrects = 0
-        total = 0
 
         for batch in test_data:
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
+            y_trues += list(labels.data)
+            y_preds += list(predicted)
             running_corrects += torch.sum(predicted == labels.data)
             total += labels.size(0)
 
@@ -72,6 +77,12 @@ def evaluate_classifier(options_map, curr_device):
         accuracy = 100 * float(correct_count) / total_pred[classname]
         print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
     print(f'Accuracy of the network on the 10000 test images: {100 * running_corrects / total} %')
+
+    print(f"Accuracy: {accuracy_score(y_trues, y_preds)}")
+    print(f"Precision: {precision_score(y_trues, y_preds)}")
+    print(f"Recall: {recall_score(y_trues, y_preds)}")
+    print(f"F1: {f1_score(y_trues, y_preds)}")
+    print(f"Matthews Corrcoef: {matthews_corrcoef(y_trues, y_preds)}")
 
 
 if __name__ == "__main__":
