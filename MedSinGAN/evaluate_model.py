@@ -105,9 +105,9 @@ if __name__ == '__main__':
             rs0 = generate_samples(netG, reals_shapes, noise_amp, n=opt.num_samples)
 
             # generate random samples of different resolution
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples)
-            generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples)
+            # generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples)
+            # generate_samples(netG, reals_shapes, noise_amp, scale_w=1, scale_h=2, n=opt.num_samples)
+            # generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=2, n=opt.num_samples)
 
     elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
         opt.noise_scaling = 0.1
