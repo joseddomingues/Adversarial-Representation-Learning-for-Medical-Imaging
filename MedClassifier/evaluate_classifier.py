@@ -19,7 +19,21 @@ def evaluate_classifier(options_map, curr_device):
         tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations)
+    # Data augmentation techniques
+    # NOTE: ADDED BECAUSE OF THE LACK OF DATA FROM THE PIPELINE. THIS ENSURES IMAGES WILL BE DIFFERENT FROM EACH OTHER
+    augmentations = tvt.Compose([
+        tvt.ToTensor(),
+        tvt.RandomHorizontalFlip(),
+        tvt.RandomVerticalFlip(),
+        tvt.RandomAdjustSharpness(2),
+        tvt.RandomApply(transforms=[
+            tvt.ColorJitter(brightness=[0.5, 0.99], hue=[0.3, 0.5], contrast=[0.5, 0.99], saturation=[0.5, 0.99])]),
+        tvt.RandomApply(transforms=[tvt.GaussianBlur(kernel_size=(5, 5))]),
+        tvt.RandomPerspective()
+    ])
+
+    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
+                                 augment=augmentations)
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
 
