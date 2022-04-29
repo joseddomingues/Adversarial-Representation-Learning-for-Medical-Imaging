@@ -2,11 +2,11 @@ from argparse import ArgumentParser
 
 import torch
 import torchvision.transforms as tvt
+from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
 from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
-from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
 
 
 def evaluate_classifier(options_map, curr_device):
@@ -33,8 +33,13 @@ def evaluate_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
-                                 augment=augmentations)
+    if arg.transform_test:
+        test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
+                                     augment=augmentations)
+    else:
+        test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
+                                     augment=None)
+
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
 
@@ -78,10 +83,13 @@ def evaluate_classifier(options_map, curr_device):
         print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
     print(f'Accuracy of the network on the 10000 test images: {100 * running_corrects / total} %')
 
+    y_trues = [elem.item() for elem in y_trues]
+    y_preds = [elem.item() for elem in y_preds]
+
     print(f"Accuracy: {accuracy_score(y_trues, y_preds)}")
-    print(f"Precision: {precision_score(y_trues, y_preds)}")
-    print(f"Recall: {recall_score(y_trues, y_preds)}")
-    print(f"F1: {f1_score(y_trues, y_preds)}")
+    print(f"Precision: {precision_score(y_trues, y_preds, average='weighted')}")
+    print(f"Recall: {recall_score(y_trues, y_preds, average='weighted')}")
+    print(f"F1: {f1_score(y_trues, y_preds, average='weighted')}")
     print(f"Matthews Corrcoef: {matthews_corrcoef(y_trues, y_preds)}")
 
 
@@ -90,6 +98,7 @@ if __name__ == "__main__":
     arg = ArgumentParser()
     arg.add_argument('--test_folder', help='Test Folder for Classification', type=str, required=True)
     arg.add_argument('--model_pth', help='Model Path', type=str, required=True)
+    arg.add_argument('--transform_test', action='store_true', help='Transform test dataset', default=0)
     opt_map = arg.parse_args()
 
     # Get current device
