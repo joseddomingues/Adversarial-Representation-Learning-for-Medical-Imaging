@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
 
+import PIL.Image as Image
+import numpy as np
 import torch.cuda
 import torch.nn as nn
 import torchvision.transforms as tvt
@@ -7,7 +9,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
-import numpy as np
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
@@ -69,6 +70,28 @@ class EarlyStopper:
         self.val_loss_min = val_loss
 
 
+def process_pipeline_images(augment, transform, im_path):
+    """
+
+    @param augment:
+    @param transform:
+    @param im_path:
+    @return:
+    """
+    target_image = Image.open(im_path)
+
+    if augment:
+        target_image = augment(target_image)
+    else:
+        converter = tvt.ToTensor()
+        target_image = converter(target_image)
+
+    if transform:
+        target_image = transform(target_image)
+
+    return target_image.numpy()
+
+
 def train_classifier(options_map, curr_device):
     # Dimensions of the 25% size image
     reduced_images_size = (614, 499)
@@ -92,8 +115,8 @@ def train_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations,
-                                  augment=augmentations)
+    train_dataset = BreastDataset(data_root_folder=options_map.train_folder)
+
     train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
     print("Done!")
 
@@ -129,8 +152,16 @@ def train_classifier(options_map, curr_device):
         total = 0
 
         for i, batch in enumerate(train_data, 0):
-            # Move batch to gpu
-            images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
+
+            # Process batch and move it to GPU
+            images = []
+            labels = batch[1].to(curr_device)
+
+            for j in range(len(batch[0])):
+                curr_image = process_pipeline_images(augmentations, transformations, batch[0][i])
+                images.append(curr_image)
+            images = np.array(images)
+            images = torch.tensor(images, device=curr_device)
 
             # Zero the gradients
             optimizer.zero_grad()

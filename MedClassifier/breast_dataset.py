@@ -1,12 +1,10 @@
 import os
 
 from torch.utils.data import Dataset
-import torchvision.transforms as tvt
-from PIL import Image
 
 
 class BreastDataset(Dataset):
-    def __init__(self, data_root_folder, transform=None, augment=None):
+    def __init__(self, data_root_folder):
 
         # Labels map
         self.labels_map = {
@@ -17,8 +15,6 @@ class BreastDataset(Dataset):
 
         # Grab global variables
         self.root_data = data_root_folder
-        self.transform = transform
-        self.augment = augment
 
         # For each folder on root get images
         self.images = []
@@ -28,20 +24,7 @@ class BreastDataset(Dataset):
             for curr_image in os.listdir(os.path.join(self.root_data, folder)):
                 if "_mask" not in curr_image:
                     curr_image_path = os.path.join(self.root_data, folder, curr_image)
-
-                    # Reads the current image and preprocess it just in case
-                    target_image = Image.open(curr_image_path)
-
-                    if self.augment:
-                        target_image = self.augment(target_image)
-                    else:
-                        converter = tvt.ToTensor()
-                        target_image = converter(target_image)
-
-                    if self.transform:
-                        target_image = self.transform(target_image)
-
-                    self.images.append(target_image)
+                    self.images.append(curr_image_path)
                     self.images_target.append(self.labels_map[folder])
 
     def __len__(self):

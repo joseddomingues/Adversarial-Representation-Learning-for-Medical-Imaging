@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
 
+import PIL.Image as Image
+import numpy as np
 import torch
 import torchvision.transforms as tvt
 from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
@@ -7,6 +9,28 @@ from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
+
+
+def process_pipeline_images(augment, transform, im_path):
+    """
+
+    @param augment:
+    @param transform:
+    @param im_path:
+    @return:
+    """
+    target_image = Image.open(im_path)
+
+    if augment:
+        target_image = augment(target_image)
+    else:
+        converter = tvt.ToTensor()
+        target_image = converter(target_image)
+
+    if transform:
+        target_image = transform(target_image)
+
+    return target_image.numpy()
 
 
 def evaluate_classifier(options_map, curr_device):
@@ -33,8 +57,7 @@ def evaluate_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
-                                 augment=None)
+    test_dataset = BreastDataset(data_root_folder=options_map.test_folder)
 
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
@@ -60,7 +83,16 @@ def evaluate_classifier(options_map, curr_device):
     with torch.no_grad():
 
         for batch in test_data:
-            images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
+            # Process batch and move it to GPU
+            images = []
+            labels = batch[1].to(curr_device)
+
+            for j in range(len(batch[0])):
+                curr_image = process_pipeline_images(augmentations, transformations, batch[0][i])
+                images.append(curr_image)
+            images = np.array(images)
+            images = torch.tensor(images, device=curr_device)
+
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
             y_trues += list(labels.data)
