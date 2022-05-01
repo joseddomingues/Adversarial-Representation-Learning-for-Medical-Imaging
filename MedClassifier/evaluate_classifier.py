@@ -33,12 +33,8 @@ def evaluate_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    if arg.transform_test:
-        test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
-                                     augment=augmentations)
-    else:
-        test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
-                                     augment=None)
+    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
+                                 augment=None)
 
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
@@ -98,7 +94,6 @@ if __name__ == "__main__":
     arg = ArgumentParser()
     arg.add_argument('--test_folder', help='Test Folder for Classification', type=str, required=True)
     arg.add_argument('--model_pth', help='Model Path', type=str, required=True)
-    arg.add_argument('--transform_test', action='store_true', help='Transform test dataset', default=0)
     opt_map = arg.parse_args()
 
     # Get current device
