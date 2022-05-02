@@ -1,7 +1,5 @@
 from argparse import ArgumentParser
 
-import PIL.Image as Image
-import numpy as np
 import torch
 import torchvision.transforms as tvt
 from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
@@ -9,28 +7,6 @@ from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
-
-
-def process_pipeline_images(augment, transform, im_path):
-    """
-
-    @param augment:
-    @param transform:
-    @param im_path:
-    @return:
-    """
-    target_image = Image.open(im_path)
-
-    if augment:
-        target_image = augment(target_image)
-    else:
-        converter = tvt.ToTensor()
-        target_image = converter(target_image)
-
-    if transform:
-        target_image = transform(target_image)
-
-    return target_image.numpy()
 
 
 def evaluate_classifier(options_map, curr_device):
