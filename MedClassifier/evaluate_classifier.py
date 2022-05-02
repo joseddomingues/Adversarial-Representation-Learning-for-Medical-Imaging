@@ -88,7 +88,7 @@ def evaluate_classifier(options_map, curr_device):
             labels = batch[1].to(curr_device)
 
             for j in range(len(batch[0])):
-                curr_image = process_pipeline_images(augmentations, transformations, batch[0][i])
+                curr_image = process_pipeline_images(augmentations, transformations, batch[0][j])
                 images.append(curr_image)
             images = np.array(images)
             images = torch.tensor(images, device=curr_device)
