@@ -57,7 +57,8 @@ def evaluate_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    test_dataset = BreastDataset(data_root_folder=options_map.test_folder)
+    test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
+                                 augment=None)
 
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     print("Done!")
@@ -83,16 +84,7 @@ def evaluate_classifier(options_map, curr_device):
     with torch.no_grad():
 
         for batch in test_data:
-            # Process batch and move it to GPU
-            images = []
-            labels = batch[1].to(curr_device)
-
-            for j in range(len(batch[0])):
-                curr_image = process_pipeline_images(augmentations, transformations, batch[0][j])
-                images.append(curr_image)
-            images = np.array(images)
-            images = torch.tensor(images, device=curr_device)
-
+            images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
             y_trues += list(labels.data)
@@ -109,7 +101,7 @@ def evaluate_classifier(options_map, curr_device):
     for classname, correct_count in correct_pred.items():
         accuracy = 100 * float(correct_count) / total_pred[classname]
         print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
-    print(f'Accuracy of the network on the 10000 test images: {100 * running_corrects / total} %')
+    print(f'Accuracy of the network on the test images: {100 * running_corrects / total} %')
 
     y_trues = [elem.item() for elem in y_trues]
     y_preds = [elem.item() for elem in y_preds]

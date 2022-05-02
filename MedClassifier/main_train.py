@@ -115,7 +115,8 @@ def train_classifier(options_map, curr_device):
         tvt.RandomPerspective()
     ])
 
-    train_dataset = BreastDataset(data_root_folder=options_map.train_folder)
+    train_dataset = BreastDataset(data_root_folder=options_map.train_folder, transform=transformations,
+                                  augment=augmentations)
 
     train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
     print("Done!")
@@ -153,15 +154,8 @@ def train_classifier(options_map, curr_device):
 
         for i, batch in enumerate(train_data, 0):
 
-            # Process batch and move it to GPU
-            images = []
-            labels = batch[1].to(curr_device)
-
-            for j in range(len(batch[0])):
-                curr_image = process_pipeline_images(augmentations, transformations, batch[0][i])
-                images.append(curr_image)
-            images = np.array(images)
-            images = torch.tensor(images, device=curr_device)
+            # Move batch to gpu
+            images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
 
             # Zero the gradients
             optimizer.zero_grad()
