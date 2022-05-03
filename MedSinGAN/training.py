@@ -267,7 +267,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
                 errD_acc = 0
 
-                for i, l_image in enumerate(pics_loader):
+                for i, l_image in enumerate(pics_loader, 1):
 
                     t_image = torch.clone(l_image).to('cuda')
 
