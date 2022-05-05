@@ -3,7 +3,6 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
 from mlflow import log_param, log_metric, start_run
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
@@ -146,11 +145,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
 
-    # If fine tune then prepare set of images to improve the generator
-    if opt.g_optimizer_folder:
-        optimisation_pics = functions.OptimisationPicsDataset(real.shape, opt.g_optimizer_folder)
-        pics_loader = DataLoader(optimisation_pics, shuffle=True, pin_memory=True)
-
     # Get alpha
     alpha = opt.alpha
 
@@ -261,160 +255,69 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         # (1) Update D network: maximize log(D(x)) + log(1-D(G(z)))
         ###########################
 
-        if opt.g_optimizer_folder:
+        for j in range(opt.Dsteps):
 
-            for j in range(opt.Dsteps):
+            # train with real
+            netD.zero_grad()
 
-                errD_acc = 0
+            with autocast():
+                output = netD(real)
+                errD_real = -output.mean()
 
-                for i, l_image in enumerate(pics_loader, 1):
-
-                    t_image = torch.clone(l_image).to('cuda')
-
-                    # train with real
-                    netD.zero_grad()
-
-                    with autocast():
-                        output = netD(t_image[0])
-                        errD_real = -output.mean()
-
-                        # train with fake
-                        # generator only trains in the last iteration of Dsteps
-                        if j == opt.Dsteps - 1:
-                            fake = netG(noise, reals_shapes, noise_amp)
-                        else:
-                            with torch.no_grad():
-                                fake = netG(noise, reals_shapes, noise_amp)
-
-                        # classify the result from generator
-                        output = netD(fake.detach())
-                        errD_fake = output.mean()
-
-                        # calculate penalty, do backward pass and step
-                    gradient_penalty = functions.calc_gradient_penalty(netD, t_image[0], fake, opt.lambda_grad,
-                                                                       opt.device,
-                                                                       d_scaler)
-
-                    with autocast():
-                        errD_total = errD_real + errD_fake + gradient_penalty
-                        errD_acc += errD_total
-
-                    del t_image
-                    torch.cuda.empty_cache()
-
-                errD_acc /= i
-                d_scaler.scale(errD_acc).backward()
-                d_scaler.step(optimizerD)
-                d_scaler.update()
-
-            del noise
-
-        else:
-
-            for j in range(opt.Dsteps):
-
-                # train with real
-                netD.zero_grad()
-
-                with autocast():
-                    output = netD(real)
-                    errD_real = -output.mean()
-
-                    # train with fake
-                    # generator only trains in the last iteration of Dsteps
-                    if j == opt.Dsteps - 1:
+                # train with fake
+                # generator only trains in the last iteration of Dsteps
+                if j == opt.Dsteps - 1:
+                    fake = netG(noise, reals_shapes, noise_amp)
+                else:
+                    with torch.no_grad():
                         fake = netG(noise, reals_shapes, noise_amp)
-                    else:
-                        with torch.no_grad():
-                            fake = netG(noise, reals_shapes, noise_amp)
 
-                    # classify the result from generator
-                    output = netD(fake.detach())
-                    errD_fake = output.mean()
+                # classify the result from generator
+                output = netD(fake.detach())
+                errD_fake = output.mean()
 
-                    # calculate penalty, do backward pass and step
-                gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device,
-                                                                   d_scaler)
+                # calculate penalty, do backward pass and step
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device,
+                                                               d_scaler)
 
-                with autocast():
-                    errD_total = errD_real + errD_fake + gradient_penalty
+            with autocast():
+                errD_total = errD_real + errD_fake + gradient_penalty
 
-                d_scaler.scale(errD_total).backward()
-                d_scaler.step(optimizerD)
-                d_scaler.update()
+            d_scaler.scale(errD_total).backward()
+            d_scaler.step(optimizerD)
+            d_scaler.update()
 
-            del noise
+        del noise
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
 
-        if opt.g_optimizer_folder:
+        # Once again classify the fake after update
+        with autocast():
+            output = netD(fake)
+            errG = -output.mean()
 
-            errG_acc = 0
+            # having alpha != 0 then generate new output from noise and calculate MSE
+            if alpha != 0:
+                loss = nn.MSELoss()
+                rec = netG(fixed_noise, reals_shapes, noise_amp)
+                rec_loss = alpha * loss(rec, real)
+            else:
+                rec_loss = 0
 
-            for i, l_image in enumerate(pics_loader, 1):
+        # zero grads and apply backward pass
+        netG.zero_grad()
 
-                t_image = torch.clone(l_image).to('cuda')
+        with autocast():
+            errG_total = errG + rec_loss
 
-                # Once again classify the fake after update
-                with autocast():
-                    output = netD(fake)
-                    errG = -output.mean()
+        g_scaler.scale(errG_total).backward()
 
-                    # having alpha != 0 then generate new output from noise and calculate MSE
-                    if alpha != 0:
-                        loss = nn.MSELoss()
-                        rec = netG(fixed_noise, reals_shapes, noise_amp)
-                        rec_loss = alpha * loss(rec, t_image[0])
-                    else:
-                        rec_loss = 0
-
-                # zero grads and apply backward pass
-                netG.zero_grad()
-
-                with autocast():
-                    errG_total = errG + rec_loss
-                    errG_acc += errG_total
-
-                del t_image
-                torch.cuda.empty_cache()
-
-            errG_acc /= i
-            g_scaler.scale(errG_acc).backward()
-
-            # optimizer applied G number of steps
-            for _ in range(opt.Gsteps):
-                g_scaler.step(optimizerG)
-                g_scaler.update()
-
-        else:
-
-            # Once again classify the fake after update
-            with autocast():
-                output = netD(fake)
-                errG = -output.mean()
-
-                # having alpha != 0 then generate new output from noise and calculate MSE
-                if alpha != 0:
-                    loss = nn.MSELoss()
-                    rec = netG(fixed_noise, reals_shapes, noise_amp)
-                    rec_loss = alpha * loss(rec, real)
-                else:
-                    rec_loss = 0
-
-            # zero grads and apply backward pass
-            netG.zero_grad()
-
-            with autocast():
-                errG_total = errG + rec_loss
-
-            g_scaler.scale(errG_total).backward()
-
-            # optimizer applied G number of steps
-            for _ in range(opt.Gsteps):
-                g_scaler.step(optimizerG)
-                g_scaler.update()
+        # optimizer applied G number of steps
+        for _ in range(opt.Gsteps):
+            g_scaler.step(optimizerG)
+            g_scaler.update()
 
         ############################
         # (3) Log Metrics
