@@ -90,7 +90,7 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
         #     "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
         #     % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
         # )
-        _iter.set_description('Epoch [{}/{}]:'.format(epoch, opt.n_epochs))
+        _iter.set_description('Epoch [{}/{}]:'.format(epoch+1, opt.n_epochs))
         for i, (imgs, _) in enumerate(dataloader):
 
             # Configure input
