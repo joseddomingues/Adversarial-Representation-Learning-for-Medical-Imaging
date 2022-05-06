@@ -72,7 +72,6 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
 
     transformations = tvt.Compose([
         tvt.ToTensor(),
-        tvt.Resize(img_shape),
         tvt.Normalize([0.5], [0.5])
     ])
 
