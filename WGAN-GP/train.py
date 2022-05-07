@@ -72,6 +72,7 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
 
     transformations = tvt.Compose([
         tvt.ToTensor(),
+
         tvt.Normalize([0.5], [0.5])
     ])
 
@@ -106,7 +107,7 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
             z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim))))
 
             # Generate a batch of images
-            fake_imgs = generator(z)
+            fake_imgs = generator(z).detach()
 
             # Real images
             real_validity = discriminator(real_imgs)
@@ -147,7 +148,7 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
                 writer.add_scalar('Loss/train/G/{}'.format(i), g_loss.item(), epoch)
 
                 if batches_done % opt.sample_interval == 0:
-                    save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, nrow=5, normalize=True)
+                    save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, normalize=True)
 
                 batches_done += opt.n_critic
 
