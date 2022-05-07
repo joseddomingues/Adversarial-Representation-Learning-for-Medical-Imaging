@@ -16,6 +16,7 @@ def get_arguments():
     parser.add_argument('--convergence_patience', help='Number of epochs of convergence patience',
                         type=int, default=2000)
     parser.add_argument('--g_optimizer_folder', type=str, help='Folder for generator to optimize')
+    parser.add_argument('--optimisation_stages', type=int, help='Current optimisation stages accumulated')
     parser.add_argument('--n_samples_generate', help='Number of samples to generate', type=int, default=10)
 
     # stage hyper parameters:

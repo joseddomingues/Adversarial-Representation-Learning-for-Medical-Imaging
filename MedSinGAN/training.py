@@ -49,10 +49,12 @@ def train(opt):
         # Initiate the generator model and add it to cuda
         generator = init_G(opt)
         if opt.g_optimizer_folder:
-            for _ in range(opt.train_stages - 1):
+            for _ in range(opt.optimisation_stages):
                 generator.init_next_stage()
             generator.load_state_dict(torch.load(os.path.join(opt.g_optimizer_folder, "netG.pth"),
                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
+            # If fine tune then init the next stage
+            generator.init_next_stage()
 
         # Fixed noise and noise ampliation to use
         fixed_noise = []
@@ -63,11 +65,11 @@ def train(opt):
 
         # If its fine tune then restringe the stages
         if opt.g_optimizer_folder:
-            opt.start_scale = opt.stop_scale
+            opt.start_scale = opt.train_stages - 1
 
         # For each scale of the number os scales will be used
         # stop_scale - Defined according to adjusting image scales
-        for scale_num in range(opt.start_scale, opt.stop_scale + 1):
+        for scale_num in range(opt.start_scale, opt.train_stages):
 
             # Generates the directory to save the outputs and file. Also saves the real image for that scale
             opt.out_ = functions.generate_dir2save(opt)
@@ -143,7 +145,11 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
-    real = reals[depth]
+
+    if opt.g_optimizer_folder:
+        real = reals[-1]
+    else:
+        real = reals[depth]
 
     # Get alpha
     alpha = opt.alpha
@@ -156,7 +162,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         fixed_noise = torch.load(os.path.join(opt.g_optimizer_folder, "fixed_noise.pth"),
                                  map_location="cuda:{}".format(torch.cuda.current_device()))
-        z_opt = fixed_noise[depth]
+
+        z_opt = functions.generate_noise([opt.nfc, reals_shapes[-1][2], reals_shapes[-1][3]], device=opt.device)
     else:
         # If on the beginning then use the first real image scale unless is animation
         if depth == 0:
@@ -190,14 +197,26 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     # setup optimizers for G
     # remove gradients from stages that are not trained
     # only trains opt.train_depth stages each time, each with a different learning rate
-    for block in netG.body[:-opt.train_depth]:
-        for param in block.parameters():
-            param.requires_grad = False
-
     # set different learning rate for lower stages
-    parameter_list = [
-        {"params": block.parameters(), "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
-        for idx, block in enumerate(netG.body[-opt.train_depth:])]
+    if opt.g_optimizer_folder:
+        for block in netG.body[-1]:
+            for param in block.parameters():
+                param.requires_grad = False
+
+        parameter_list = [
+            {"params": block.parameters(),
+             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-1]) - 1 - idx))}
+            for idx, block in enumerate(netG.body[-1])]
+    else:
+
+        for block in netG.body[:-opt.train_depth]:
+            for param in block.parameters():
+                param.requires_grad = False
+
+        parameter_list = [
+            {"params": block.parameters(),
+             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
+            for idx, block in enumerate(netG.body[-opt.train_depth:])]
 
     # add parameters of head and tail to training
     if depth - opt.train_depth < 0:
@@ -217,6 +236,23 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         noise_amp = torch.load(os.path.join(opt.g_optimizer_folder, "noise_amp.pth"),
                                map_location="cuda:{}".format(torch.cuda.current_device()))
+
+        # if not the first stage append 0 and then generate result using G
+        noise_amp.append(0)
+
+        z_reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+
+        # define criterion and calculate the loss
+        criterion = nn.MSELoss()
+        rec_loss = criterion(z_reconstruction, real)
+
+        # calculate RMSE, multiply byt the initial amp and change the last one to it
+        RMSE = torch.sqrt(rec_loss).detach()
+        _noise_amp = opt.noise_amp_init * RMSE
+
+        noise_amp[-1] = _noise_amp
+        del z_reconstruction, rec_loss, RMSE, _noise_amp
+
     else:
         if depth == 0:
             # if the first stage then just append to noise amp
