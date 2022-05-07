@@ -176,6 +176,9 @@ if __name__ == "__main__":
     img_shape = (3, 614, 499)
     cuda = True if torch.cuda.is_available() else False
 
+    # For speed?!
+    torch.backends.cudnn.benchmark = True
+
     # Loss weight for gradient penalty
     lambda_gp = 10
 
