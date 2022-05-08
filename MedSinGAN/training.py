@@ -44,6 +44,10 @@ def train(opt):
 
         # Create the scales reals pyramids
         reals = functions.create_reals_pyramid(real, opt)
+
+        if opt.g_optimizer_folder:
+            reals.append(reals[-1])
+
         print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
 
         # Initiate the generator model and add it to cuda
@@ -53,6 +57,8 @@ def train(opt):
                 generator.init_next_stage()
             generator.load_state_dict(torch.load(os.path.join(opt.g_optimizer_folder, "netG.pth"),
                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
+
+            generator.init_next_stage()
 
         # Fixed noise and noise ampliation to use
         fixed_noise = []
@@ -71,7 +77,12 @@ def train(opt):
 
             # Generates the directory to save the outputs and file. Also saves the real image for that scale
             opt.out_ = functions.generate_dir2save(opt)
-            opt.outf = '%s/%d' % (opt.out_, scale_num)
+
+            if opt.g_optimizer_folder:
+                opt.outf = '%s/%d' % (opt.out_, opt.train_stages + 1)
+            else:
+                opt.outf = '%s/%d' % (opt.out_, scale_num)
+
             try:
                 os.makedirs(opt.outf)
             except OSError:
@@ -145,6 +156,9 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
 
+    if opt.g_optimizer_folder:
+        real = reals[-1]
+
     # Get alpha
     alpha = opt.alpha
 
@@ -156,7 +170,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         fixed_noise = torch.load(os.path.join(opt.g_optimizer_folder, "fixed_noise.pth"),
                                  map_location="cuda:{}".format(torch.cuda.current_device()))
-        z_opt = fixed_noise[depth]
+        fixed_noise.append(fixed_noise[-1])
+        z_opt = fixed_noise[-1]
     else:
         # If on the beginning then use the first real image scale unless is animation
         if depth == 0:
@@ -177,8 +192,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
                                                  device=opt.device).detach()
 
-    # Append the noise to the fixed initial noise
-    fixed_noise.append(z_opt.detach())
+        # Append the noise to the fixed initial noise
+        fixed_noise.append(z_opt.detach())
 
     ############################
     # define optimizers, learning rate schedulers, and learning rates for lower stages
@@ -187,17 +202,34 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     # setup optimizers for D
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
 
-    # setup optimizers for G
-    # remove gradients from stages that are not trained
-    # only trains opt.train_depth stages each time, each with a different learning rate
-    for block in netG.body[:-opt.train_depth]:
-        for param in block.parameters():
-            param.requires_grad = False
+    if opt.g_optimizer_folder:
 
-    # set different learning rate for lower stages
-    parameter_list = [
-        {"params": block.parameters(), "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
-        for idx, block in enumerate(netG.body[-opt.train_depth:])]
+        # setup optimizers for G
+        # remove gradients from stages that are not trained
+        # only trains opt.train_depth stages each time, each with a different learning rate
+        for block in netG.body[-1]:
+            for param in block.parameters():
+                param.requires_grad = False
+
+        # set different learning rate for lower stages
+        parameter_list = [
+            {"params": block.parameters(),
+             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-1]) - 1 - idx))}
+            for idx, block in enumerate(netG.body[-1])]
+    else:
+
+        # setup optimizers for G
+        # remove gradients from stages that are not trained
+        # only trains opt.train_depth stages each time, each with a different learning rate
+        for block in netG.body[:-opt.train_depth]:
+            for param in block.parameters():
+                param.requires_grad = False
+
+        # set different learning rate for lower stages
+        parameter_list = [
+            {"params": block.parameters(),
+             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
+            for idx, block in enumerate(netG.body[-opt.train_depth:])]
 
     # add parameters of head and tail to training
     if depth - opt.train_depth < 0:
@@ -217,6 +249,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         noise_amp = torch.load(os.path.join(opt.g_optimizer_folder, "noise_amp.pth"),
                                map_location="cuda:{}".format(torch.cuda.current_device()))
+        noise_amp.append(noise_amp[-1])
     else:
         if depth == 0:
             # if the first stage then just append to noise amp
@@ -249,7 +282,10 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ############################
         # (0) sample noise for unconditional generation
         ###########################
-        noise = functions.sample_random_noise(depth, reals_shapes, opt)
+        if opt.g_optimizer_folder:
+            noise = functions.sample_random_noise(len(reals_shapes)-1, reals_shapes, opt)
+        else:
+            noise = functions.sample_random_noise(depth, reals_shapes, opt)
 
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1-D(G(z)))
@@ -346,7 +382,10 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         if iter % 500 == 0 or iter + 1 == opt.niter:
             # functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
             # functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
-            generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
+            if opt.g_optimizer_folder:
+                generate_samples(netG, opt, len(reals)-1, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
+            else:
+                generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
 
         schedulerD.step()
         schedulerG.step()
@@ -365,8 +404,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('MS-SSIM', ms_ssim, step=iter + 1)
 
     # saves the networks
-    if not g_early_stopper.early_stop or not d_early_stopper.early_stop:
-        functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+    functions.save_networks(netG, netD, z_opt, opt, g_scaler)
 
     return fixed_noise, noise_amp, netG, netD
 

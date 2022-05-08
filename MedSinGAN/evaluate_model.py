@@ -21,7 +21,7 @@ def make_dir(path):
         pass
 
 
-def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50):
+def generate_samples(netG, reals_shapes, noise_amp, opt, scale_w=1.0, scale_h=1.0, reconstruct=False, n=50):
     """
 
     @param netG:
@@ -56,9 +56,17 @@ def generate_samples(netG, reals_shapes, noise_amp, scale_w=1.0, scale_h=1.0, re
     make_dir(dir2save_parent)
 
     for idx in range(n):
-        noise = functions.sample_random_noise(opt.train_stages - 1, reals_shapes, opt)
-        with autocast():
-            sample = netG(noise, reals_shapes, noise_amp)
+
+        if opt.g_optimizer_folder:
+            noise = functions.sample_random_noise(len(reals_shapes) - 1, reals_shapes, opt)
+            with autocast():
+                sample = netG(noise, reals_shapes, noise_amp)
+
+        else:
+            noise = functions.sample_random_noise(opt.train_stages - 1, reals_shapes, opt)
+            with autocast():
+                sample = netG(noise, reals_shapes, noise_amp)
+
         functions.save_image('{}/gen_sample_{}.jpg'.format(dir2save_parent, idx), sample.detach())
 
 
@@ -99,10 +107,10 @@ if __name__ == '__main__':
         print("Generating Samples...")
         with torch.no_grad():
             # # generate reconstruction
-            generate_samples(netG, reals_shapes, noise_amp, reconstruct=True)
+            generate_samples(netG, reals_shapes, noise_amp, opt, reconstruct=True)
 
             # generate random samples of normal resolution
-            rs0 = generate_samples(netG, reals_shapes, noise_amp, n=opt.num_samples)
+            rs0 = generate_samples(netG, reals_shapes, noise_amp, opt, n=opt.num_samples)
 
             # generate random samples of different resolution
             # generate_samples(netG, reals_shapes, noise_amp, scale_w=2, scale_h=1, n=opt.num_samples)
