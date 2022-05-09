@@ -129,7 +129,7 @@ if __name__ == '__main__':
                                                        fixed_noise[0].shape[3]],
                                                       device=opt.device)
 
-        out = generate_samples(netG, reals_shapes, noise_amp, reconstruct=True)
+        out = generate_samples(netG, reals_shapes, noise_amp, opt, reconstruct=True)
 
         mask_file_name = '{}_mask{}'.format(opt.naive_img[:-4], opt.naive_img[-4:])
         if os.path.exists(mask_file_name):
