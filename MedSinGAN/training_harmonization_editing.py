@@ -373,8 +373,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
             break
 
     # saves the networks
-    if not g_early_stopper.early_stop or not d_early_stopper.early_stop:
-        functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+    functions.save_networks(netG, netD, z_opt, opt, g_scaler)
         
     return fixed_noise, noise_amp, netG, netD
 
