@@ -200,7 +200,7 @@ def perform_optimisation(model_configurations, target_image):
     # Optimise for the benign images
     folder_benign = os.path.join("..", OPTIMISATION_BENIGN)
     benign_opt_ims = [elem for elem in os.listdir(folder_benign) if ".pth" not in elem if not elem.startswith(".")]
-    for ben in os.listdir(benign_opt_ims):
+    for ben in benign_opt_ims:
 
         command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_benign, ben)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {benign_opt_stages} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_BENIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
@@ -229,7 +229,7 @@ def perform_optimisation(model_configurations, target_image):
     # Optimise for the malign images
     folder_malign = os.path.join("..", OPTIMISATION_MALIGN)
     malign_opt_ims = [elem for elem in os.listdir(folder_malign) if ".pth" not in elem if not elem.startswith(".")]
-    for mal in os.listdir(malign_opt_ims):
+    for mal in malign_opt_ims:
 
         command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_malign, mal)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {malign_opt_stages} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_MALIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
