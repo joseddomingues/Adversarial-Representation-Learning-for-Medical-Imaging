@@ -284,6 +284,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ###########################
         if opt.g_optimizer_folder:
             noise = functions.sample_random_noise(len(reals_shapes)-1, reals_shapes, opt)
+            fixed_noise = noise
         else:
             noise = functions.sample_random_noise(depth, reals_shapes, opt)
 
