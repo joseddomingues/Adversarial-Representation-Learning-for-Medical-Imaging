@@ -17,6 +17,9 @@ def get_arguments():
                         type=int, default=2000)
     parser.add_argument('--g_optimizer_folder', type=str, help='Folder for generator to optimize')
     parser.add_argument('--n_samples_generate', help='Number of samples to generate', type=int, default=10)
+    parser.add_argument('--original_ts',
+                        help='Number of train stages originally used. Only used when fine-tuning the model', type=int,
+                        default=6)
 
     # stage hyper parameters:
     parser.add_argument('--nfc', type=int, help='number of filters (channels) per conv layer', default=64)
