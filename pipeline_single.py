@@ -206,7 +206,7 @@ def perform_optimisation(model_configurations, target_image):
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
-        core_name = get_image_core_name(target_image)
+        core_name = get_image_core_name(ben)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
         # Update stages
@@ -235,7 +235,7 @@ def perform_optimisation(model_configurations, target_image):
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
-        core_name = get_image_core_name(target_image)
+        core_name = get_image_core_name(mal)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
         # Update stages
