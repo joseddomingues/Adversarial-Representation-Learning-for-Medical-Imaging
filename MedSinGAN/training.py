@@ -45,12 +45,8 @@ def train(opt):
         # Create the scales reals pyramids
         reals = functions.create_reals_pyramid(real, opt)
 
-        # Case when fine-tuning
-        n_to_add = opt.train_stages - opt.original_ts + 1
-
         if opt.g_optimizer_folder:
-            for _ in range(n_to_add):
-                reals.append(reals[-1])
+            reals.append(reals[-1])
 
         print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
 
@@ -112,7 +108,7 @@ def train(opt):
             # Trains the Network on a specific scale
             fixed_noise, noise_amp, generator, d_curr = train_single_scale(d_curr, generator, reals, fixed_noise,
                                                                            noise_amp,
-                                                                           opt, scale_num, writer, metrics_step, n_to_add)
+                                                                           opt, scale_num, writer, metrics_step)
 
             # Save stats, delete current discriminator and repeat loop
             torch.save(fixed_noise, '%s/fixed_noise.pth' % opt.out_)
@@ -137,7 +133,7 @@ def train(opt):
 # writer - configuration map defined in config.py
 
 
-def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, writer, metrics_step, n_to_add):
+def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, writer, metrics_step):
     """
     Trains the network on a specific scale
     @param netD: Discriminator
@@ -149,7 +145,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     @param depth: Current depth (scale)
     @param writer: Writer
     @param metrics_step: Metrics step to log in mlflow
-    @param n_to_add: Number of times to add according to the fine-tune process
     @return: fixed_noise, noise_amp, netG, netD
     """
 
@@ -175,10 +170,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         fixed_noise = torch.load(os.path.join(opt.g_optimizer_folder, "fixed_noise.pth"),
                                  map_location="cuda:{}".format(torch.cuda.current_device()))
-
-        for _ in range(n_to_add):
-            fixed_noise.append(fixed_noise[-1])
-
+        fixed_noise.append(fixed_noise[-1])
         z_opt = fixed_noise[-1]
     else:
         # If on the beginning then use the first real image scale unless is animation
@@ -257,10 +249,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         noise_amp = torch.load(os.path.join(opt.g_optimizer_folder, "noise_amp.pth"),
                                map_location="cuda:{}".format(torch.cuda.current_device()))
-
-        for _ in range(n_to_add):
-            noise_amp.append(noise_amp[-1])
-
+        noise_amp.append(noise_amp[-1])
     else:
         if depth == 0:
             # if the first stage then just append to noise amp
