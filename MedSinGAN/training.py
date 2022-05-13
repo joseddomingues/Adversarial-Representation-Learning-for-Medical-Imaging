@@ -189,34 +189,18 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     # setup optimizers for D
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
 
-    if opt.g_optimizer_folder:
+    # setup optimizers for G
+    # remove gradients from stages that are not trained
+    # only trains opt.train_depth stages each time, each with a different learning rate
+    for block in netG.body[:-opt.train_depth]:
+        for param in block.parameters():
+            param.requires_grad = False
 
-        # setup optimizers for G
-        # remove gradients from stages that are not trained
-        # only trains opt.train_depth stages each time, each with a different learning rate
-        for block in netG.body[-1]:
-            for param in block.parameters():
-                param.requires_grad = False
-
-        # set different learning rate for lower stages
-        parameter_list = [
-            {"params": block.parameters(),
-             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-1]) - 1 - idx))}
-            for idx, block in enumerate(netG.body[-1])]
-    else:
-
-        # setup optimizers for G
-        # remove gradients from stages that are not trained
-        # only trains opt.train_depth stages each time, each with a different learning rate
-        for block in netG.body[:-opt.train_depth]:
-            for param in block.parameters():
-                param.requires_grad = False
-
-        # set different learning rate for lower stages
-        parameter_list = [
-            {"params": block.parameters(),
-             "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
-            for idx, block in enumerate(netG.body[-opt.train_depth:])]
+    # set different learning rate for lower stages
+    parameter_list = [
+        {"params": block.parameters(),
+         "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
+        for idx, block in enumerate(netG.body[-opt.train_depth:])]
 
     # add parameters of head and tail to training
     if depth - opt.train_depth < 0:
