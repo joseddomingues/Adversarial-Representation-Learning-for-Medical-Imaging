@@ -186,9 +186,6 @@ def perform_optimisation(model_configurations, target_image):
     malign_harmonised = [os.path.join(HARMONISED_FOLDER, elem) for elem in os.listdir(HARMONISED_FOLDER) if
                          "malign" in elem if not elem.startswith(".")]
 
-    benign_opt_stages = model_configurations['stages']
-    malign_opt_stages = model_configurations['stages']
-
     for benign in benign_harmonised:
         shutil.copy(benign, OPTIMISATION_BENIGN)
 
@@ -202,21 +199,18 @@ def perform_optimisation(model_configurations, target_image):
     benign_opt_ims = [elem for elem in os.listdir(folder_benign) if ".pth" not in elem if not elem.startswith(".")]
     for ben in benign_opt_ims:
 
-        command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_benign, ben)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {benign_opt_stages} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_BENIGN)} --gpu 0 "
+        command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_benign, ben)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_BENIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
         core_name = get_image_core_name(ben)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-        # Update stages
-        benign_opt_stages += 1
-
         # Copy current files to the optimisation folder
         fixed_noise = f"{latest_model}/fixed_noise.pth"
         noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{benign_opt_stages}/netG.pth"
-        net_d = f"{latest_model}/{benign_opt_stages}/netD.pth"
+        net_g = f"{latest_model}/{model_configurations['stages']}/netG.pth"
+        net_d = f"{latest_model}/{model_configurations['stages']}/netD.pth"
 
         shutil.copy(fixed_noise, folder_benign)
         shutil.copy(noise_amp, folder_benign)
@@ -231,21 +225,18 @@ def perform_optimisation(model_configurations, target_image):
     malign_opt_ims = [elem for elem in os.listdir(folder_malign) if ".pth" not in elem if not elem.startswith(".")]
     for mal in malign_opt_ims:
 
-        command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_malign, mal)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {malign_opt_stages} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_MALIGN)} --gpu 0 "
+        command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_malign, mal)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_MALIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
         core_name = get_image_core_name(mal)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-        # Update stages
-        malign_opt_stages += 1
-
         # Copy current files to the optimisation folder
         fixed_noise = f"{latest_model}/fixed_noise.pth"
         noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{malign_opt_stages}/netG.pth"
-        net_d = f"{latest_model}/{malign_opt_stages}/netD.pth"
+        net_g = f"{latest_model}/{model_configurations['stages']}/netG.pth"
+        net_d = f"{latest_model}/{model_configurations['stages']}/netD.pth"
 
         shutil.copy(fixed_noise, folder_malign)
         shutil.copy(noise_amp, folder_malign)
