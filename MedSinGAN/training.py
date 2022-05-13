@@ -45,9 +45,6 @@ def train(opt):
         # Create the scales reals pyramids
         reals = functions.create_reals_pyramid(real, opt)
 
-        if opt.g_optimizer_folder:
-            reals.append(reals[-1])
-
         print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
 
         # Initiate the generator model and add it to cuda
@@ -58,8 +55,6 @@ def train(opt):
             generator.load_state_dict(torch.load(os.path.join(opt.g_optimizer_folder, "netG.pth"),
                                                  map_location="cuda:{}".format(torch.cuda.current_device())))
 
-            generator.init_next_stage()
-
         # Fixed noise and noise ampliation to use
         fixed_noise = []
         noise_amp = []
@@ -69,19 +64,15 @@ def train(opt):
 
         # If its fine tune then restringe the stages
         if opt.g_optimizer_folder:
-            opt.start_scale = opt.stop_scale
+            opt.start_scale = opt.train_stages - 1
 
         # For each scale of the number os scales will be used
         # stop_scale - Defined according to adjusting image scales
-        for scale_num in range(opt.start_scale, opt.stop_scale + 1):
+        for scale_num in range(opt.start_scale, opt.train_stages):
 
             # Generates the directory to save the outputs and file. Also saves the real image for that scale
             opt.out_ = functions.generate_dir2save(opt)
-
-            if opt.g_optimizer_folder:
-                opt.outf = '%s/%d' % (opt.out_, opt.train_stages + 1)
-            else:
-                opt.outf = '%s/%d' % (opt.out_, scale_num)
+            opt.outf = '%s/%d' % (opt.out_, scale_num)
 
             try:
                 os.makedirs(opt.outf)
@@ -156,9 +147,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
 
-    if opt.g_optimizer_folder:
-        real = reals[-1]
-
     # Get alpha
     alpha = opt.alpha
 
@@ -170,8 +158,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         fixed_noise = torch.load(os.path.join(opt.g_optimizer_folder, "fixed_noise.pth"),
                                  map_location="cuda:{}".format(torch.cuda.current_device()))
-        fixed_noise.append(fixed_noise[-1])
-        z_opt = fixed_noise[-1]
+        z_opt = fixed_noise[depth]
     else:
         # If on the beginning then use the first real image scale unless is animation
         if depth == 0:
@@ -249,7 +236,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     if opt.g_optimizer_folder:
         noise_amp = torch.load(os.path.join(opt.g_optimizer_folder, "noise_amp.pth"),
                                map_location="cuda:{}".format(torch.cuda.current_device()))
-        noise_amp.append(noise_amp[-1])
     else:
         if depth == 0:
             # if the first stage then just append to noise amp
@@ -282,11 +268,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ############################
         # (0) sample noise for unconditional generation
         ###########################
-        if opt.g_optimizer_folder:
-            noise = functions.sample_random_noise(len(reals_shapes)-1, reals_shapes, opt)
-            fixed_noise = noise
-        else:
-            noise = functions.sample_random_noise(depth, reals_shapes, opt)
+        noise = functions.sample_random_noise(depth, reals_shapes, opt)
 
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1-D(G(z)))
@@ -383,10 +365,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         if iter % 500 == 0 or iter + 1 == opt.niter:
             # functions.save_image('{}/fake_sample_{}.jpg'.format(opt.outf, iter + 1), fake.detach())
             # functions.save_image('{}/reconstruction_{}.jpg'.format(opt.outf, iter + 1), rec.detach())
-            if opt.g_optimizer_folder:
-                generate_samples(netG, opt, len(reals)-1, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
-            else:
-                generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
+            generate_samples(netG, opt, depth, noise_amp, writer, reals, iter + 1, opt.n_samples_generate)
 
         schedulerD.step()
         schedulerG.step()
