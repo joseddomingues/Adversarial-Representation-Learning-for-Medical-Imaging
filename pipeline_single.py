@@ -209,8 +209,8 @@ def perform_optimisation(model_configurations, target_image):
         # Copy current files to the optimisation folder
         fixed_noise = f"{latest_model}/fixed_noise.pth"
         noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{model_configurations['stages']}/netG.pth"
-        net_d = f"{latest_model}/{model_configurations['stages']}/netD.pth"
+        net_g = f"{latest_model}/{model_configurations['stages'] - 1}/netG.pth"
+        net_d = f"{latest_model}/{model_configurations['stages'] - 1}/netD.pth"
 
         shutil.copy(fixed_noise, folder_benign)
         shutil.copy(noise_amp, folder_benign)
@@ -235,8 +235,8 @@ def perform_optimisation(model_configurations, target_image):
         # Copy current files to the optimisation folder
         fixed_noise = f"{latest_model}/fixed_noise.pth"
         noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{model_configurations['stages']}/netG.pth"
-        net_d = f"{latest_model}/{model_configurations['stages']}/netD.pth"
+        net_g = f"{latest_model}/{model_configurations['stages'] - 1}/netG.pth"
+        net_d = f"{latest_model}/{model_configurations['stages'] - 1}/netD.pth"
 
         shutil.copy(fixed_noise, folder_malign)
         shutil.copy(noise_amp, folder_malign)
