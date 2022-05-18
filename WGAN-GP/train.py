@@ -1,11 +1,9 @@
 import argparse
 import os
 
-import numpy as np
 import torch
 import torch.autograd as autograd
 import torchvision.transforms as tvt
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
@@ -15,22 +13,27 @@ from mammos_dataset import MammographyDataset
 from models import Generator, Discriminator
 
 
-def compute_gradient_penalty(D, real_samples, fake_samples, Tensor):
+def compute_gradient_penalty(D, real_samples, fake_samples, dev):
     """
     Calculates the gradient penalty loss for WGAN GP
     @param D:
     @param real_samples:
     @param fake_samples:
-    @param Tensor:
+    @param dev:
     @return:
     """
     # Random weight term for interpolation between real and fake samples
-    alpha = Tensor(np.random.random((real_samples.size(0), 1, 1, 1)))
+    # alpha = Tensor(np.random.random((real_samples.size(0), 1, 1, 1)))
+    alpha = torch.rand((real_samples.size(0), 1, 1, 1), device=dev)
 
     # Get random interpolation between real and fake samples
-    interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples)).requires_grad_(True)
+    interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples))
+    interpolates = interpolates.to(dev)
+    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
     d_interpolates = D(interpolates)
-    fake = Variable(Tensor(real_samples.shape[0], 1).fill_(1.0), requires_grad=False)
+
+    # fake = Variable(Tensor(real_samples.shape[0], 1).fill_(1.0), requires_grad=False)
+    fake = torch.ones((real_samples.shape[0], 1), device=dev)
 
     # Get gradient w.r.t. interpolates
     gradients = autograd.grad(
@@ -46,12 +49,12 @@ def compute_gradient_penalty(D, real_samples, fake_samples, Tensor):
     return gradient_penalty
 
 
-def perform_train(opt, img_shape, cuda, lambda_gp):
+def perform_train(opt, img_shape, dev, lambda_gp):
     """
 
     @param opt:
     @param img_shape:
-    @param cuda:
+    @param dev:
     @param lambda_gp:
     @return:
     """
@@ -60,15 +63,12 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
     generator = Generator(opt=opt, img_shape=img_shape)
     discriminator = Discriminator(img_shape=img_shape)
 
-    if cuda:
-        generator.cuda()
-        discriminator.cuda()
+    generator.to(dev)
+    discriminator.to(dev)
 
     # Optimizers
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-
-    Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
     transformations = tvt.Compose([
         tvt.ToTensor(),
@@ -91,11 +91,11 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
         #     "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
         #     % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
         # )
-        _iter.set_description('Epoch [{}/{}]:'.format(epoch+1, opt.n_epochs))
+        _iter.set_description('Epoch [{}/{}]:'.format(epoch + 1, opt.n_epochs))
         for i, (imgs, _) in enumerate(dataloader):
 
             # Configure input
-            real_imgs = Variable(imgs.type(Tensor))
+            real_imgs = imgs.to("cuda")
 
             # ---------------------
             #  Train Discriminator
@@ -104,19 +104,21 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
             optimizer_D.zero_grad()
 
             # Sample noise as generator input
-            z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim))))
+            # z = torch.tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim)), device="cuda").detach()
+            # z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim))))
+            z = torch.randn((imgs.shape[0], opt.latent_dim), device=dev).detach()
 
             # Generate a batch of images
-            fake_imgs = generator(z).detach()
+            fake_imgs = generator(z)
 
             # Real images
-            real_validity = discriminator(real_imgs)
+            real_validity = discriminator(real_imgs.detach())
 
             # Fake images
-            fake_validity = discriminator(fake_imgs)
+            fake_validity = discriminator(fake_imgs.detach())
 
             # Gradient penalty
-            gradient_penalty = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data, Tensor)
+            gradient_penalty = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data, dev)
 
             # Adversarial loss
             d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + lambda_gp * gradient_penalty
@@ -138,7 +140,7 @@ def perform_train(opt, img_shape, cuda, lambda_gp):
 
                 # Loss measures generator's ability to fool the discriminator
                 # Train on fake images
-                fake_validity = discriminator(fake_imgs)
+                fake_validity = discriminator(fake_imgs.detach())
                 g_loss = -torch.mean(fake_validity)
 
                 g_loss.backward()
@@ -174,12 +176,9 @@ if __name__ == "__main__":
 
     # Get images shapes and cuda device
     img_shape = (3, 614, 499)
-    cuda = True if torch.cuda.is_available() else False
-
-    # For speed?!
-    torch.backends.cudnn.benchmark = True
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Loss weight for gradient penalty
     lambda_gp = 10
 
-    perform_train(opt, img_shape, cuda, lambda_gp)
+    perform_train(opt, img_shape, dev, lambda_gp)
