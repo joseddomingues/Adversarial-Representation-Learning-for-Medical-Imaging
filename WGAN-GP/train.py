@@ -4,6 +4,7 @@ import os
 import torch
 import torch.autograd as autograd
 import torchvision.transforms as tvt
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
@@ -13,7 +14,7 @@ from mammos_dataset import MammographyDataset
 from models import Generator, Discriminator
 
 
-def compute_gradient_penalty(D, real_samples, fake_samples, dev):
+def compute_gradient_penalty(D, real_samples, fake_samples, dev, ds):
     """
     Calculates the gradient penalty loss for WGAN GP
     @param D:
@@ -30,22 +31,31 @@ def compute_gradient_penalty(D, real_samples, fake_samples, dev):
     interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples))
     interpolates = interpolates.to(dev)
     interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
-    d_interpolates = D(interpolates)
+
+    with autocast():
+        d_interpolates = D(interpolates)
 
     # fake = Variable(Tensor(real_samples.shape[0], 1).fill_(1.0), requires_grad=False)
     fake = torch.ones((real_samples.shape[0], 1), device=dev)
 
     # Get gradient w.r.t. interpolates
     gradients = autograd.grad(
-        outputs=d_interpolates,
+        outputs=ds.scale(d_interpolates),
         inputs=interpolates,
         grad_outputs=fake,
         create_graph=True,
         retain_graph=True,
-        only_inputs=True)[0]
+        only_inputs=True)  # [0]
+
+    inv_scale = 1. / ds.get_scale()
+    gradients = [p * inv_scale for p in gradients]
+    gradients = gradients[0]
 
     gradients = gradients.view(gradients.size(0), -1)
-    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    with autocast():
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+
+    del alpha, fake
     return gradient_penalty
 
 
@@ -58,6 +68,9 @@ def perform_train(opt, img_shape, dev, lambda_gp):
     @param lambda_gp:
     @return:
     """
+
+    d_scaler = GradScaler()
+    g_scaler = GradScaler()
 
     # Initialize generator and discriminator
     generator = Generator(opt=opt, img_shape=img_shape)
@@ -95,7 +108,7 @@ def perform_train(opt, img_shape, dev, lambda_gp):
         for i, (imgs, _) in enumerate(dataloader):
 
             # Configure input
-            real_imgs = imgs.to("cuda")
+            real_imgs = imgs.to(dev)
 
             # ---------------------
             #  Train Discriminator
@@ -104,27 +117,26 @@ def perform_train(opt, img_shape, dev, lambda_gp):
             optimizer_D.zero_grad()
 
             # Sample noise as generator input
-            # z = torch.tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim)), device="cuda").detach()
-            # z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim))))
-            z = torch.randn((imgs.shape[0], opt.latent_dim), device=dev).detach()
+            z = torch.randn((imgs.shape[0], opt.latent_dim), device=dev)
 
             # Generate a batch of images
-            fake_imgs = generator(z)
-
-            # Real images
-            real_validity = discriminator(real_imgs.detach())
-
-            # Fake images
-            fake_validity = discriminator(fake_imgs.detach())
+            with autocast():
+                fake_imgs = generator(z)
+                # Real images
+                real_validity = discriminator(real_imgs)
+                # Fake images
+                fake_validity = discriminator(fake_imgs.detach())
 
             # Gradient penalty
-            gradient_penalty = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data, dev)
+            gradient_penalty = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data, dev, d_scaler)
 
-            # Adversarial loss
-            d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + lambda_gp * gradient_penalty
+            with autocast():
+                # Adversarial loss
+                d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + lambda_gp * gradient_penalty
 
-            d_loss.backward()
-            optimizer_D.step()
+            d_scaler.scale(d_loss).backward()
+            d_scaler.step(optimizer_D)
+            d_scaler.update()
 
             optimizer_G.zero_grad()
 
@@ -136,21 +148,24 @@ def perform_train(opt, img_shape, dev, lambda_gp):
                 # -----------------
 
                 # Generate a batch of images
-                fake_imgs = generator(z)
+                with autocast():
+                    fake_imgs = generator(z)
+                    # Loss measures generator's ability to fool the discriminator
+                    # Train on fake images
+                    fake_validity = discriminator(fake_imgs)
+                    g_loss = -torch.mean(fake_validity)
 
-                # Loss measures generator's ability to fool the discriminator
-                # Train on fake images
-                fake_validity = discriminator(fake_imgs.detach())
-                g_loss = -torch.mean(fake_validity)
+                g_scaler.scale(g_loss).backward()
+                g_scaler.step(optimizer_G)
+                g_scaler.update()
 
-                g_loss.backward()
-                optimizer_G.step()
-
-                writer.add_scalar('Loss/train/D/{}'.format(i), d_loss.item(), epoch)
-                writer.add_scalar('Loss/train/G/{}'.format(i), g_loss.item(), epoch)
+                print(
+                    "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
+                    % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
+                )
 
                 if batches_done % opt.sample_interval == 0:
-                    save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, normalize=True)
+                    save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, nrow=5, normalize=True)
 
                 batches_done += opt.n_critic
 
