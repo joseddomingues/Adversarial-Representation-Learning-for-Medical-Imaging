@@ -164,6 +164,9 @@ def perform_train(opt, img_shape, dev, lambda_gp):
                     % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
                 )
 
+                writer.add_scalar('Loss/train/D/{}'.format(i), d_loss.item(), epoch)
+                writer.add_scalar('Loss/train/G/{}'.format(i), g_loss.item(), epoch)
+
                 if batches_done % opt.sample_interval == 0:
                     save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, nrow=5, normalize=True)
 
