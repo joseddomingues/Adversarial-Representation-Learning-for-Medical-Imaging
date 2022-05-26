@@ -153,6 +153,11 @@ def train_classifier(options_map, curr_device):
         total = 0
 
         for i, batch in enumerate(train_data, 0):
+            # labels = batch[1].to(curr_device)
+            # images = []
+            # for elem in batch[0]:
+            #     images.append(process_pipeline_images(augment=augmentations, transform=transformations, im_path=elem))
+            # images = torch.tensor(np.array(images), device=curr_device)
 
             # Move batch to gpu
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)

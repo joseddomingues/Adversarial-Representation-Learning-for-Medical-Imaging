@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 
+import PIL.Image as Image
 import torch
 import torchvision.transforms as tvt
 from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
@@ -7,6 +8,28 @@ from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
+
+
+def process_pipeline_images(augment, transform, im_path):
+    """
+
+    @param augment:
+    @param transform:
+    @param im_path:
+    @return:
+    """
+    target_image = Image.open(im_path)
+
+    if augment:
+        target_image = augment(target_image)
+    else:
+        converter = tvt.ToTensor()
+        target_image = converter(target_image)
+
+    if transform:
+        target_image = transform(target_image)
+
+    return target_image.numpy()
 
 
 def evaluate_classifier(options_map, curr_device):
@@ -60,6 +83,13 @@ def evaluate_classifier(options_map, curr_device):
     with torch.no_grad():
 
         for batch in test_data:
+
+            # labels = batch[1].to(curr_device)
+            # images = []
+            # for elem in batch[0]:
+            #     images.append(process_pipeline_images(augment=augmentations, transform=transformations, im_path=elem))
+            # images = torch.tensor(np.array(images), device=curr_device)
+
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)

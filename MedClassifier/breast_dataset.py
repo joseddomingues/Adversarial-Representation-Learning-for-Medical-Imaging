@@ -1,8 +1,8 @@
 import os
 
-from torch.utils.data import Dataset
 import torchvision.transforms as tvt
 from PIL import Image
+from torch.utils.data import Dataset
 
 
 class BreastDataset(Dataset):
@@ -26,7 +26,7 @@ class BreastDataset(Dataset):
 
         for folder in os.listdir(self.root_data):
             for curr_image in os.listdir(os.path.join(self.root_data, folder)):
-                if "_mask" not in curr_image:
+                if "_mask" not in curr_image and not curr_image.startswith("."):
                     curr_image_path = os.path.join(self.root_data, folder, curr_image)
 
                     # Reads the current image and preprocess it just in case
