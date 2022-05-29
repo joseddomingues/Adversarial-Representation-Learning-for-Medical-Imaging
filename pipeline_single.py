@@ -18,20 +18,19 @@ OUTPUT_FOLDER = "output_folder"
 NORMAL_OUTPUT = "output_folder/normal"
 BENIGN_OUTPUT = "output_folder/benign"
 MALIGN_OUTPUT = "output_folder/malign"
-
-# Variable to save the path of the main generators taking from reference path inside MedSinGAN
-main_generators = {}
+EVAL_RESULTS = "Evaluation_"
 
 
 ################################################
 # GENERATION
 ################################################
 
-def perform_generation(target_image, model_configurations):
+def perform_generation(target_image, model_configurations, samples_to_generate):
     """
 
     @param target_image:
     @param model_configurations:
+    @param samples_to_generate:
     @return:
     """
 
@@ -50,6 +49,11 @@ def perform_generation(target_image, model_configurations):
     # Get the latest model
     latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
     best_images_path = f"{latest_model}/gen_samples_stage_{model_configurations['stages'] - 1}"
+
+    # Generate normal samples
+    command = f"python evaluate_model.py --gpu 0 --model_dir {latest_model} --num_samples {samples_to_generate}"
+    for path in execute_bash_command(command.split()):
+        print(path, end="")
 
     # Transfer generated images from last stage
     for generated_image in os.listdir(best_images_path):
@@ -72,11 +76,9 @@ def perform_generation(target_image, model_configurations):
     shutil.copy(net_g, os.path.join("..", OPTIMISATION_MALIGN))
     shutil.copy(net_d, os.path.join("..", OPTIMISATION_MALIGN))
 
-    # Associate the normal folder to the main generators variable
-    main_generators["normal"] = latest_model
-
     # Return back to the main folder
     os.chdir("../")
+    return latest_model
 
 
 ################################################
@@ -173,12 +175,16 @@ def perform_harmonisation(base_image, model_configurations):
     os.chdir("..")
 
 
-def perform_optimisation(model_configurations, target_image):
+def perform_optimisation(model_configurations, samples_to_generate):
     """
 
     @param model_configurations:
+    @param samples_to_generate:
     @return:
     """
+
+    benign_results = []
+    malign_results = []
 
     # Copy files to respective folders
     benign_harmonised = [os.path.join(HARMONISED_FOLDER, elem) for elem in os.listdir(HARMONISED_FOLDER) if
@@ -197,92 +203,78 @@ def perform_optimisation(model_configurations, target_image):
     # Optimise for the benign images
     folder_benign = os.path.join("..", OPTIMISATION_BENIGN)
     benign_opt_ims = [elem for elem in os.listdir(folder_benign) if ".pth" not in elem if not elem.startswith(".")]
-    for ben in os.listdir(benign_opt_ims):
+    for ben in benign_opt_ims:
 
         command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_benign, ben)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_BENIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
-        core_name = get_image_core_name(target_image)
+        core_name = get_image_core_name(ben)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-        # Copy current files to the optimisation folder
-        fixed_noise = f"{latest_model}/fixed_noise.pth"
-        noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{model_configurations['stages'] - 1}/netG.pth"
-        net_d = f"{latest_model}/{model_configurations['stages'] - 1}/netD.pth"
+        benign_results.append(latest_model)
 
-        shutil.copy(fixed_noise, folder_benign)
-        shutil.copy(noise_amp, folder_benign)
-        shutil.copy(net_g, folder_benign)
-        shutil.copy(net_d, folder_benign)
-
-        # Associate the benign folder to the main generators variable
-        main_generators["benign"] = latest_model
+        # Generate benign samples
+        command = f"python evaluate_model.py --gpu 0 --model_dir {latest_model} --num_samples {samples_to_generate}"
+        for path in execute_bash_command(command.split()):
+            print(path, end="")
 
     # Optimise for the malign images
     folder_malign = os.path.join("..", OPTIMISATION_MALIGN)
     malign_opt_ims = [elem for elem in os.listdir(folder_malign) if ".pth" not in elem if not elem.startswith(".")]
-    for mal in os.listdir(malign_opt_ims):
+    for mal in malign_opt_ims:
 
         command = f"python main_train.py --train_mode generation --input_name {os.path.join(folder_malign, mal)} --n_samples_generate {model_configurations['n_samples_generate']} --train_stages {model_configurations['stages']} --niter {model_configurations['niter']} --train_depth {model_configurations['concurrent']} --activation {model_configurations['act_func']} --im_max_size {model_configurations['im_max_size']} --batch_norm --convergence_patience {model_configurations['convergence_patience']} --g_optimizer_folder {os.path.join('..', OPTIMISATION_MALIGN)} --gpu 0 "
         for path in execute_bash_command(command.split()):
             print(path, end="")
 
-        core_name = get_image_core_name(target_image)
+        core_name = get_image_core_name(mal)
         latest_model = get_latest_model(base_path=f"TrainedModels/{core_name}")
 
-        # Copy current files to the optimisation folder
-        fixed_noise = f"{latest_model}/fixed_noise.pth"
-        noise_amp = f"{latest_model}/noise_amp.pth"
-        net_g = f"{latest_model}/{model_configurations['stages'] - 1}/netG.pth"
-        net_d = f"{latest_model}/{model_configurations['stages'] - 1}/netD.pth"
+        malign_results.append(latest_model)
 
-        shutil.copy(fixed_noise, folder_malign)
-        shutil.copy(noise_amp, folder_malign)
-        shutil.copy(net_g, folder_malign)
-        shutil.copy(net_d, folder_malign)
-
-        # Associate the benign folder to the main generators variable
-        main_generators["malign"] = latest_model
+        # Generate malign samples
+        command = f"python evaluate_model.py --gpu 0 --model_dir {latest_model} --num_samples {samples_to_generate}"
+        for path in execute_bash_command(command.split()):
+            print(path, end="")
 
     os.chdir("..")
+    return benign_results, malign_results
 
 
-def final_generation(samples_to_generate):
-    os.chdir("MedSinGAN")
-    samples_dir = "Evaluation_/random_samples"
+def organise_contents(normal_path, benign_paths, malign_paths):
+    """
+    Organizes the contents of the generations and fine-tunes
+    @param normal_path:
+    @param benign_paths:
+    @param malign_paths:
+    @return:
+    """
 
-    # Generate benign samples
-    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['benign']} --num_samples {samples_to_generate}"
-    for path in execute_bash_command(command.split()):
-        print(path, end="")
+    image_id = 0
 
-    # move images to correct folder
-    for sample in os.listdir(os.path.join(main_generators['benign'], samples_dir)):
-        if not sample.startswith("."):
-            shutil.move(os.path.join(main_generators['benign'], samples_dir, sample), os.path.join("..", BENIGN_OUTPUT))
+    for model in benign_paths:
+        samples = os.listdir(os.path.join(model, EVAL_RESULTS))
+        for samp in samples:
+            if not samp.startswith("."):
+                shutil.move(os.path.join(model, EVAL_RESULTS, samp),
+                            os.path.join("..", BENIGN_OUTPUT, f"{image_id}.png"))
+                image_id += 1
 
-    # Generate malign samples
-    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['malign']} --num_samples {samples_to_generate}"
-    for path in execute_bash_command(command.split()):
-        print(path, end="")
+    for model in malign_paths:
+        samples = os.listdir(os.path.join(model, EVAL_RESULTS))
+        for samp in samples:
+            if not samp.startswith("."):
+                shutil.move(os.path.join(model, EVAL_RESULTS, samp),
+                            os.path.join("..", MALIGN_OUTPUT, f"{image_id}.png"))
+                image_id += 1
 
-    # move images to correct folder
-    for sample in os.listdir(os.path.join(main_generators['malign'], samples_dir)):
-        if not sample.startswith("."):
-            shutil.move(os.path.join(main_generators['malign'], samples_dir, sample), os.path.join("..", MALIGN_OUTPUT))
-
-    # Generate normal samples
-    command = f"python evaluate_model.py --gpu 0 --model_dir {main_generators['normal']} --num_samples {samples_to_generate}"
-    for path in execute_bash_command(command.split()):
-        print(path, end="")
-
-        # move images to correct folder
-        for sample in os.listdir(os.path.join(main_generators['normal'], samples_dir)):
-            if not sample.startswith("."):
-                shutil.move(os.path.join(main_generators['normal'], samples_dir, sample),
-                            os.path.join("..", NORMAL_OUTPUT))
+    samples = os.listdir(os.path.join(normal_path, EVAL_RESULTS))
+    for samp in samples:
+        if not samp.startswith("."):
+            shutil.move(os.path.join(normal_path, EVAL_RESULTS, samp),
+                        os.path.join("..", NORMAL_OUTPUT, f"{image_id}.png"))
+            image_id += 1
 
 
 if __name__ == "__main__":
@@ -328,7 +320,7 @@ if __name__ == "__main__":
     target_normal = os.listdir(os.path.join(opt_map.data_folder, "normal"))
     target_normal = [elem for elem in target_normal if not elem.startswith(".")]
     target_normal = os.path.join(opt_map.data_folder, "normal", target_normal[0])
-    perform_generation(target_normal, configurations['generation'])
+    normal_path = perform_generation(target_normal, configurations['generation'], opt_map.samples_for_output)
 
     #######################################
     # COLLAGE
@@ -346,10 +338,10 @@ if __name__ == "__main__":
     # OPTIMISATION
     #######################################
 
-    perform_optimisation(configurations['generation'], target_normal)
+    benign_paths, malign_paths = perform_optimisation(configurations['generation'], opt_map.samples_for_output)
 
     #######################################
-    # FINAL GENERATION
+    # FILES ORGANIZATION
     #######################################
 
-    final_generation(opt_map.samples_for_output)
+    organise_contents(normal_path, benign_paths, malign_paths)

@@ -44,6 +44,7 @@ def train(opt):
 
         # Create the scales reals pyramids
         reals = functions.create_reals_pyramid(real, opt)
+
         print("Training on image pyramid: {}\n".format([r.shape for r in reals]))
 
         # Initiate the generator model and add it to cuda
@@ -63,15 +64,16 @@ def train(opt):
 
         # If its fine tune then restringe the stages
         if opt.g_optimizer_folder:
-            opt.start_scale = opt.stop_scale
+            opt.start_scale = opt.train_stages - 1
 
         # For each scale of the number os scales will be used
         # stop_scale - Defined according to adjusting image scales
-        for scale_num in range(opt.start_scale, opt.stop_scale + 1):
+        for scale_num in range(opt.start_scale, opt.train_stages):
 
             # Generates the directory to save the outputs and file. Also saves the real image for that scale
             opt.out_ = functions.generate_dir2save(opt)
             opt.outf = '%s/%d' % (opt.out_, scale_num)
+
             try:
                 os.makedirs(opt.outf)
             except OSError:
@@ -177,8 +179,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
                 z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
                                                  device=opt.device).detach()
 
-    # Append the noise to the fixed initial noise
-    fixed_noise.append(z_opt.detach())
+        # Append the noise to the fixed initial noise
+        fixed_noise.append(z_opt.detach())
 
     ############################
     # define optimizers, learning rate schedulers, and learning rates for lower stages
@@ -196,7 +198,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
 
     # set different learning rate for lower stages
     parameter_list = [
-        {"params": block.parameters(), "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
+        {"params": block.parameters(),
+         "lr": opt.lr_g * (opt.lr_scale ** (len(netG.body[-opt.train_depth:]) - 1 - idx))}
         for idx, block in enumerate(netG.body[-opt.train_depth:])]
 
     # add parameters of head and tail to training
@@ -365,8 +368,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('MS-SSIM', ms_ssim, step=iter + 1)
 
     # saves the networks
-    if not g_early_stopper.early_stop or not d_early_stopper.early_stop:
-        functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+    functions.save_networks(netG, netD, z_opt, opt, g_scaler)
 
     return fixed_noise, noise_amp, netG, netD
 
