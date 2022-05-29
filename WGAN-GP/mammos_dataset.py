@@ -15,14 +15,13 @@ class MammographyDataset(Dataset):
 
         self.processed_images = []
         if self.transformations:
-
             for elem in self.images:
                 curr = Image.open(elem)
                 self.processed_images.append(self.transformations(curr))
 
     def __getitem__(self, idx):
         # The label in this case is irrelevant since what we want is to generate images
-        return self.processed_images[idx], "Mammography"
+        return self.images[idx], "Mammography"
 
     def __len__(self):
-        return len(self.processed_images)
+        return len(self.images)

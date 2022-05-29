@@ -1,6 +1,8 @@
 import argparse
 import os
 
+import PIL.Image as Image
+import numpy as np
 import torch
 import torch.autograd as autograd
 import torchvision.transforms as tvt
@@ -12,6 +14,24 @@ from tqdm import tqdm
 
 from mammos_dataset import MammographyDataset
 from models import Generator, Discriminator
+
+
+def process_pipeline_images(transform, im_path):
+    """
+
+    @param transform:
+    @param im_path:
+    @return:
+    """
+    target_image = Image.open(im_path)
+
+    if transform:
+        target_image = transform(target_image)
+    else:
+        converter = tvt.ToTensor()
+        target_image = converter(target_image)
+
+    return target_image.numpy()
 
 
 def compute_gradient_penalty(D, real_samples, fake_samples, dev, ds):
@@ -85,7 +105,6 @@ def perform_train(opt, img_shape, dev, lambda_gp):
 
     transformations = tvt.Compose([
         tvt.ToTensor(),
-
         tvt.Normalize([0.5], [0.5])
     ])
 
@@ -108,7 +127,12 @@ def perform_train(opt, img_shape, dev, lambda_gp):
         for i, (imgs, _) in enumerate(dataloader):
 
             # Configure input
-            real_imgs = imgs.to(dev)
+            # real_imgs = imgs.to(dev)
+
+            real_imgs = []
+            for elem in imgs:
+                real_imgs.append(process_pipeline_images(transform=transformations, im_path=elem))
+            real_imgs = torch.tensor(np.array(real_imgs), device=dev)
 
             # ---------------------
             #  Train Discriminator
@@ -117,7 +141,7 @@ def perform_train(opt, img_shape, dev, lambda_gp):
             optimizer_D.zero_grad()
 
             # Sample noise as generator input
-            z = torch.randn((imgs.shape[0], opt.latent_dim), device=dev)
+            z = torch.randn((2, opt.latent_dim), device=dev)
 
             # Generate a batch of images
             with autocast():
