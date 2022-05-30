@@ -4,22 +4,21 @@ import math
 import os
 import random
 
-import torchvision.transforms
-from PIL import Image
 import dateutil.tz
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
+import torchvision.transforms
+from PIL import Image
 from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
     ChannelDropout
 from skimage import color, morphology, filters
 from skimage import io as img
-from torch.cuda.amp import autocast
+from torch.utils.data import Dataset
 
 from imresize import imresize
 
@@ -198,22 +197,16 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
         interpolates = interpolates.to(device)  # .cuda()
         interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
 
-        with autocast():
-            disc_interpolates = netD(interpolates)
+        disc_interpolates = netD(interpolates)
 
-    gradients = torch.autograd.grad(outputs=given_scaler.scale(disc_interpolates), inputs=interpolates,
+    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     # .cuda(), #if use_cuda else torch.ones(
                                     # disc_interpolates.size()),
-                                    create_graph=True, retain_graph=True, only_inputs=True)  # [0]
-
-    inv_scale = 1. / given_scaler.get_scale()
-    gradients = [p * inv_scale for p in gradients]
-    gradients = gradients[0]
+                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
 
     # LAMBDA = 1
-    with autocast():
-        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
 
     del interpolates
     del gradients
@@ -297,7 +290,7 @@ def read_image2np(opt):
     return x
 
 
-def save_networks(netG, netDs, z, opt, scaler):
+def save_networks(netG, netDs, z, opt):
     """
 
     @param netG:
@@ -315,9 +308,6 @@ def save_networks(netG, netDs, z, opt, scaler):
     else:
         torch.save(netDs.state_dict(), '%s/netD.pth' % opt.outf)
     torch.save(z, '%s/z_opt.pth' % opt.outf)
-
-    if scaler:
-        torch.save(scaler, '%s/scaler.pth' % opt.outf)
 
 
 def adjust_scales2image(real_, opt):
@@ -699,7 +689,7 @@ class EarlyStopper:
         self.delta = delta
         self.trace_func = trace_func
 
-    def __call__(self, val_loss, netG, netD, z_opt, opt, g_scaler):
+    def __call__(self, val_loss, netG, netD, z_opt, opt):
 
         if val_loss < 0:
             score = val_loss
@@ -708,7 +698,7 @@ class EarlyStopper:
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, netG, netD, z_opt, opt, g_scaler)
+            self.save_checkpoint(val_loss, netG, netD, z_opt, opt)
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
@@ -717,10 +707,10 @@ class EarlyStopper:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, netG, netD, z_opt, opt, g_scaler)
+            self.save_checkpoint(val_loss, netG, netD, z_opt, opt)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, netG, netD, z_opt, opt, g_scaler):
+    def save_checkpoint(self, val_loss, netG, netD, z_opt, opt):
         """
         Saves model when validation loss decrease.
         @param val_loss:
@@ -728,13 +718,12 @@ class EarlyStopper:
         @param netD:
         @param z_opt:
         @param opt:
-        @param g_scaler:
         @return:
         """
         if self.verbose:
             self.trace_func(
                 f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        save_networks(netG, netD, z_opt, opt, g_scaler)
+        save_networks(netG, netD, z_opt, opt)
         self.val_loss_min = val_loss
 
 

@@ -1,7 +1,6 @@
 import os
 
 import torch
-from torch.cuda.amp import autocast
 
 import functions as functions
 from config import get_arguments
@@ -35,8 +34,7 @@ def generate_samples(netG, reals_shapes, noise_amp, opt, scale_w=1.0, scale_h=1.
     """
 
     if reconstruct:
-        with autocast():
-            reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
+        reconstruction = netG(fixed_noise, reals_shapes, noise_amp)
         if opt.train_mode == "generation" or opt.train_mode == "retarget":
             functions.save_image('{}/reconstruction.jpg'.format(dir2save), reconstruction.detach())
             functions.save_image('{}/real_image.jpg'.format(dir2save), reals[-1].detach())
@@ -59,13 +57,11 @@ def generate_samples(netG, reals_shapes, noise_amp, opt, scale_w=1.0, scale_h=1.
 
         if opt.g_optimizer_folder:
             noise = functions.sample_random_noise(len(reals_shapes) - 1, reals_shapes, opt)
-            with autocast():
-                sample = netG(noise, reals_shapes, noise_amp)
+            sample = netG(noise, reals_shapes, noise_amp)
 
         else:
             noise = functions.sample_random_noise(opt.train_stages - 1, reals_shapes, opt)
-            with autocast():
-                sample = netG(noise, reals_shapes, noise_amp)
+            sample = netG(noise, reals_shapes, noise_amp)
 
         functions.save_image('{}/gen_sample_{}.jpg'.format(dir2save_parent, idx), sample.detach())
 

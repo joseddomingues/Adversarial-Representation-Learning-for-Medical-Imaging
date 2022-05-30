@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from mlflow import log_param, log_metric, start_run
-from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -139,10 +138,6 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     @return: fixed_noise, noise_amp, netG, netD
     """
 
-    # Creates scaler for half precision
-    d_scaler = GradScaler()
-    g_scaler = GradScaler()
-
     # Get the shapes of the different scales and then the current real image (According to current scale)
     reals_shapes = [real.shape for real in reals]
     real = reals[depth]
@@ -263,32 +258,28 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
             # train with real
             netD.zero_grad()
 
-            with autocast():
-                output = netD(real)
-                errD_real = -output.mean()
+            output = netD(real)
+            errD_real = -output.mean()
 
-                # train with fake
-                # generator only trains in the last iteration of Dsteps
-                if j == opt.Dsteps - 1:
+            # train with fake
+            # generator only trains in the last iteration of Dsteps
+            if j == opt.Dsteps - 1:
+                fake = netG(noise, reals_shapes, noise_amp)
+            else:
+                with torch.no_grad():
                     fake = netG(noise, reals_shapes, noise_amp)
-                else:
-                    with torch.no_grad():
-                        fake = netG(noise, reals_shapes, noise_amp)
 
-                # classify the result from generator
-                output = netD(fake.detach())
-                errD_fake = output.mean()
+            # classify the result from generator
+            output = netD(fake.detach())
+            errD_fake = output.mean()
 
-                # calculate penalty, do backward pass and step
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device,
-                                                               d_scaler)
+            # calculate penalty, do backward pass and step
+            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
 
-            with autocast():
-                errD_total = errD_real + errD_fake + gradient_penalty
+            errD_total = errD_real + errD_fake + gradient_penalty
 
-            d_scaler.scale(errD_total).backward()
-            d_scaler.step(optimizerD)
-            d_scaler.update()
+            errD_total.backward()
+            optimizerD.step()
 
         del noise
 
@@ -297,30 +288,27 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         ###########################
 
         # Once again classify the fake after update
-        with autocast():
-            output = netD(fake)
-            errG = -output.mean()
+        output = netD(fake)
+        errG = -output.mean()
 
-            # having alpha != 0 then generate new output from noise and calculate MSE
-            if alpha != 0:
-                loss = nn.MSELoss()
-                rec = netG(fixed_noise, reals_shapes, noise_amp)
-                rec_loss = alpha * loss(rec, real)
-            else:
-                rec_loss = 0
+        # having alpha != 0 then generate new output from noise and calculate MSE
+        if alpha != 0:
+            loss = nn.MSELoss()
+            rec = netG(fixed_noise, reals_shapes, noise_amp)
+            rec_loss = alpha * loss(rec, real)
+        else:
+            rec_loss = 0
 
         # zero grads and apply backward pass
         netG.zero_grad()
 
-        with autocast():
-            errG_total = errG + rec_loss
+        errG_total = errG + rec_loss
 
-        g_scaler.scale(errG_total).backward()
+        errG_total.backward()
 
         # optimizer applied G number of steps
         for _ in range(opt.Gsteps):
-            g_scaler.step(optimizerG)
-            g_scaler.update()
+            optimizerG.step()
 
         ############################
         # (3) Log Metrics
@@ -332,8 +320,8 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('Generator Train Loss', errG.item(), step=metrics_step)
         log_metric('Generator Train Loss Reconstruction', rec_loss.item(), step=metrics_step)
         log_metric('Generator Loss', errG_total.item(), step=metrics_step)
-        g_early_stopper(errG_total.item(), netG, netD, z_opt, opt, g_scaler)
-        d_early_stopper(errD_total.item(), netG, netD, z_opt, opt, g_scaler)
+        g_early_stopper(errG_total.item(), netG, netD, z_opt, opt)
+        d_early_stopper(errD_total.item(), netG, netD, z_opt, opt)
         metrics_step += 1
 
         ############################
