@@ -89,6 +89,10 @@ def perform_train(opt, img_shape, dev, lambda_gp):
     @return:
     """
 
+    # Creates folders to save models and generated samples
+    RESULTS_FOLDER = "results"
+    os.mkdir(RESULTS_FOLDER)
+
     d_scaler = GradScaler()
     g_scaler = GradScaler()
 
@@ -141,7 +145,7 @@ def perform_train(opt, img_shape, dev, lambda_gp):
             optimizer_D.zero_grad()
 
             # Sample noise as generator input
-            z = torch.randn((2, opt.latent_dim), device=dev)
+            z = torch.randn((opt.batch_size, opt.latent_dim), device=dev)
 
             # Generate a batch of images
             with autocast():
@@ -192,7 +196,16 @@ def perform_train(opt, img_shape, dev, lambda_gp):
                 writer.add_scalar('Loss/train/G/{}'.format(i), g_loss.item(), epoch)
 
                 if batches_done % opt.sample_interval == 0:
-                    save_image(fake_imgs.data[0], "images/%d.png" % batches_done, nrow=5, normalize=True)
+                    curr_path = os.path.join(RESULTS_FOLDER, f"epoch_{epoch}")
+                    os.mkdir(curr_path)
+                    for im_index in range(opt.n_samples_to_generate):
+                        z = torch.randn((opt.batch_size, opt.latent_dim), device=dev)
+                        with torch.no_grad():
+                            fake_imgs = generator(z)
+                        save_image(fake_imgs.data[0], os.path.join(curr_path, f"image_{im_index}.png"), normalize=True)
+
+                    torch.save(generator.state_dict(), os.path.join(curr_path, f"gen_epoch_{epoch}.pth"))
+                    del fake_imgs, z
 
                 batches_done += opt.n_critic
 
@@ -214,6 +227,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_critic", type=int, default=5, help="number of training steps for discriminator per iter")
     parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
     parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
+    parser.add_argument("--n_samples_to_generate", type=int, default=10,
+                        help="Number of samples to generate for each saving progress")
     opt = parser.parse_args()
 
     # Get images shapes and cuda device
