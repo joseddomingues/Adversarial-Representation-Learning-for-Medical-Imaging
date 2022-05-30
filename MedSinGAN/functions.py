@@ -165,7 +165,7 @@ def sample_random_noise(depth, reals_shapes, opt):
     return noise
 
 
-def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scaler):
+def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     """
 
     @param netD:
