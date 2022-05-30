@@ -356,7 +356,7 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
         log_metric('MS-SSIM', ms_ssim, step=iter + 1)
 
     # saves the networks
-    functions.save_networks(netG, netD, z_opt, opt, g_scaler)
+    functions.save_networks(netG, netD, z_opt, opt)
 
     return fixed_noise, noise_amp, netG, netD
 
