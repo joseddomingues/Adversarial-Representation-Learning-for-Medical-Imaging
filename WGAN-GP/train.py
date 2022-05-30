@@ -192,7 +192,7 @@ def perform_train(opt, img_shape, dev, lambda_gp):
                 writer.add_scalar('Loss/train/G/{}'.format(i), g_loss.item(), epoch)
 
                 if batches_done % opt.sample_interval == 0:
-                    save_image(fake_imgs.data[:25], "images/%d.png" % batches_done, nrow=5, normalize=True)
+                    save_image(fake_imgs.data[0], "images/%d.png" % batches_done, nrow=5, normalize=True)
 
                 batches_done += opt.n_critic
 
