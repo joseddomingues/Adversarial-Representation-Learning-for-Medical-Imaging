@@ -336,18 +336,11 @@ def create_reals_pyramid(real, opt):
 
     reals = []
     # use old rescaling method for harmonization
-    if opt.train_mode == "harmonization":
-        for i in range(opt.stop_scale):
-            scale = math.pow(opt.scale_factor, opt.stop_scale - i)
-            curr_real = imresize(real, scale, opt)
-            reals.append(curr_real)
-    # use new rescaling method for all other tasks
-    else:
-        for i in range(opt.stop_scale):
-            scale = math.pow(opt.scale_factor,
-                             ((opt.stop_scale - 1) / math.log(opt.stop_scale)) * math.log(opt.stop_scale - i) + 1)
-            curr_real = imresize(real, scale, opt)
-            reals.append(curr_real)
+    for i in range(opt.stop_scale):
+        scale = math.pow(opt.scale_factor, opt.stop_scale - i)
+        curr_real = imresize(real, scale, opt)
+        reals.append(curr_real)
+
     reals.append(real)
     return reals
 
