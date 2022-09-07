@@ -566,7 +566,7 @@ class Augment:
 
     def __init__(self):
         super().__init__()
-        self._transofrm = self.strong_aug()
+        self._transform = self.strong_aug()
 
     def strong_aug(self):
         """
