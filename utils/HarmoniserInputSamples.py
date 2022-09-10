@@ -580,13 +580,13 @@ class Augment:
         color_r = random.randint(0, 256)
         color_g = random.randint(0, 256)
         color_b = random.randint(0, 256)
-        num_holes = random.randint(1, 5)
-        if num_holes == 5:
+        num_holes = random.randint(1, 20)
+        if num_holes == 20:
             max_h_size = random.randint(15, 30)
             max_w_size = random.randint(15, 30)
         else:
-            max_h_size = random.randint(30, 60)
-            max_w_size = random.randint(30, 60)
+            max_h_size = random.randint(50, 60)
+            max_w_size = random.randint(50, 60)
         return Compose([
             OneOf([
                 OneOf([
