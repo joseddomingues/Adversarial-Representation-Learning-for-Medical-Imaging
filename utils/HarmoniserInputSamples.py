@@ -4,6 +4,8 @@ import math
 import os
 import random
 from math import pi
+from PIL import Image
+import cv2
 
 import dateutil.tz
 import imageio
@@ -226,7 +228,7 @@ def read_image(image_name, nc_im, not_cuda):
     @return:
     """
     x = img.imread(image_name)
-    x = np2torch(x, nc_im, not_cuda)
+    x = np2torch(x=x, nc_im=nc_im, not_cuda=not_cuda)
     x = x[:, 0:3, :, :]
     return x
 
@@ -248,6 +250,8 @@ def read_image_dir(dir, nc_im, not_cuda):
 def np2torch(x, nc_im, not_cuda):
     """
 
+    @param not_cuda:
+    @param nc_im:
     @param x:
     @param opt:
     @return:
@@ -576,8 +580,8 @@ class Augment:
         color_r = random.randint(0, 256)
         color_g = random.randint(0, 256)
         color_b = random.randint(0, 256)
-        num_holes = random.randint(1, 2)
-        if num_holes == 2:
+        num_holes = random.randint(1, 5)
+        if num_holes == 5:
             max_h_size = random.randint(15, 30)
             max_w_size = random.randint(15, 30)
         else:
@@ -667,32 +671,6 @@ def generate_gif(dir2save, netG, fixed_noise, reals, noise_amp, opt, alpha=0.1, 
             all_images.append(sample)
     imageio.mimsave('{}/start_scale={}_alpha={}_beta={}.gif'.format(dir2save, start_scale, alpha, beta), all_images,
                     fps=fps)
-
-
-# [Batch Size, Channels (Depth), Height (Rows), Width (Columns)]
-def np2torch(x, opt):
-    """
-
-    @param x:
-    @param opt:
-    @return:
-    """
-
-    if opt.nc_im == 3:
-        x = x[:, :, :, None]
-        x = x.transpose((3, 2, 0, 1)) / 255
-    else:
-        x = color.rgb2gray(x)
-        x = x[:, :, None, None]
-        x = x.transpose(3, 2, 0, 1)
-    x = torch.from_numpy(x)
-    if not opt.not_cuda:
-        x = move_to_gpu(x)
-    x = x.type(torch.cuda.FloatTensor) if not opt.not_cuda else x.type(torch.FloatTensor)
-    # x = x.type(torch.cuda.FloatTensor)
-    x = norm(x)
-    return x
-
 
 def torch2uint8(x):
     """
@@ -1052,26 +1030,33 @@ def linear(x):
 
 
 if __name__ == "__main__":
-    opt = {}
+
+
+    #Creates the folder to store the generated images
+    folder_path = "harmoniser_input_images"
+    os.mkdir(folder_path)
 
     # Reads the image
     # Needs: input_name, nc_im, not_cuda
-    real = read_image("", nc_im=3, not_cuda=False)
+    not_cuda = True
+    real = read_image("../pipeline_data_tcia/normal/normal.png", nc_im=3, not_cuda=not_cuda)
 
     # Adjusts the scales of the image
     # Needs: im_max_size, scale1, stop_scale, train_stages, scale_factor, im_min_size,
-    real, scale1, stop_scale, scale_factor = adjust_scales2image(real, nc_im=3, not_cuda=False, im_max_size=614,
+    real, scale1, stop_scale, scale_factor = adjust_scales2image(real, nc_im=3, not_cuda=not_cuda, im_max_size=614,
                                                                  im_min_size=120, train_stages=16)
 
     # Create the scales reals pyramids
     # Needs: train_mode, stop_scale, scale_factor,
     reals = create_reals_pyramid(real, train_mode="harmonisation", stop_scale=stop_scale, scale_factor=scale_factor,
-                                 nc_im=3, not_cuda=False)
+                                 nc_im=3, not_cuda=not_cuda)
 
-    img_to_augment = convert_image_np(reals[-1]) * 255.0
+    img_to_augment = convert_image_np(reals[-2]) * 255.0
 
     data = {"image": img_to_augment}
     aug = Augment()
-    augmented = aug.transform(**data)
-    image = augmented["image"]
-    save_image(f"sample_image.png", image)
+
+    for i in range(10):
+        augmented = aug.transform(**data)
+        image = augmented["image"]
+        cv2.imwrite(f"{folder_path}/sample_image_{i}.png",  image)
