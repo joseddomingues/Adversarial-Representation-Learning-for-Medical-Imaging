@@ -11,8 +11,6 @@ class ImageDataset(Dataset):
     Defining the class to load datasets
     """
 
-    # TODO: Se tivermos a imagem sem a mascara ele causa problemas, so queremos imagens que tenham mascara se nao nao
-
     def __init__(self, input_dir='train', transform=None):
         self.input_dir = input_dir
         self.transform = transform
@@ -32,6 +30,11 @@ class ImageDataset(Dataset):
         return len(self.dirlist)
 
     def __getitem__(self, idx):
+        """
+        We delay the image processing when needed to avoid exhausting the computing resources on dataset loading
+        @param idx:
+        @return:
+        """
         img_id = self.dirlist[idx]
 
         temp = img_id.split(".")

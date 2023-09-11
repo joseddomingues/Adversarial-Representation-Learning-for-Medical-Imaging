@@ -162,15 +162,12 @@ def train_single_scale(netD, netG, reals, fixed_noise, noise_amp, opt, depth, wr
     else:
         # If on the beginning then use the first real image scale unless is animation
         if depth == 0:
-            if opt.train_mode == "generation" or opt.train_mode == "retarget":
+            if opt.train_mode == "generation":
                 z_opt = reals[0]
-            elif opt.train_mode == "animation":
-                z_opt = functions.generate_noise([opt.nc_im, reals_shapes[depth][2], reals_shapes[depth][3]],
-                                                 device=opt.device).detach()
 
         # Else then generate noise depending on what is required
         else:
-            if opt.train_mode == "generation" or opt.train_mode == "animation":
+            if opt.train_mode == "generation":
                 z_opt = functions.generate_noise([opt.nfc,
                                                   reals_shapes[depth][2] + opt.num_layer * 2,
                                                   reals_shapes[depth][3] + opt.num_layer * 2],

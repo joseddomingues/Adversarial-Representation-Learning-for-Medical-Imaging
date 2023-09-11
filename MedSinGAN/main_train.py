@@ -52,11 +52,9 @@ if __name__ == '__main__':
     if torch.cuda.is_available():
         torch.cuda.set_device(opt.gpu)
 
-    if opt.train_mode == "generation" or opt.train_mode == "retarget" or opt.train_mode == "animation":
-        if opt.train_mode == "animation":
-            opt.im_min_size = 20
+    if opt.train_mode == "generation":
         from training import *
-    elif opt.train_mode == "harmonization" or opt.train_mode == "editing":
+    elif opt.train_mode == "harmonization":
         if opt.fine_tune:
             if opt.model_dir == "":
                 print("Model for fine tuning not specified.")

@@ -79,6 +79,7 @@ class GenerationEvaluator:
         """
         Run LPIPS test for the given generated image
         @param generated_image: Generated image to lpips
+        @param padd: padding the image to match the minimum size if necessary
         @return: The average LPIPS value for the generated image
         """
 
@@ -143,6 +144,7 @@ class GenerationEvaluator:
         """
         Run SSIM and MS-SSIM test for the given generated image
         @param generated_image: Generated image to mssim
+        @param padd: padding the image to match the minimum size if necessary
         @return: SSIM, MS-SSIM
         """
 

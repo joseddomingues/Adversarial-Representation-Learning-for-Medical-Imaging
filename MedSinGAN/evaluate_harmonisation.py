@@ -9,6 +9,9 @@ import numpy as np
 from evaluate_generation import GenerationEvaluator
 from utils.utils import resize_to_dim
 
+BASE_COMPARE_CROPPED_PNG = "base_compare_cropped.png"
+CROPPED_PNG = "harmonised_compare_cropped.png"
+
 
 class HarmonisationEvaluator:
     def __init__(self, base_image, target_image, target_mask):
@@ -34,10 +37,10 @@ class HarmonisationEvaluator:
         harmonised_compare_cropped = harmonised_compare[top:bottom, left:right]
 
         # Save images to give as input to Generator Evaluator
-        cv2.imwrite("base_compare_cropped.png", base_compare_cropped)
-        cv2.imwrite("harmonised_compare_cropped.png", harmonised_compare_cropped)
+        cv2.imwrite(BASE_COMPARE_CROPPED_PNG, base_compare_cropped)
+        cv2.imwrite(CROPPED_PNG, harmonised_compare_cropped)
 
-        self.evaluator = GenerationEvaluator("base_compare_cropped.png", padd_input=True)
+        self.evaluator = GenerationEvaluator(BASE_COMPARE_CROPPED_PNG, padd_input=True)
 
     def run_lpips(self):
         """

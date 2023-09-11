@@ -1,6 +1,5 @@
 import argparse
 
-
 def get_arguments():
     """
     Obtains the arguments of the parser

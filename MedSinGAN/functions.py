@@ -4,15 +4,14 @@ import math
 import os
 import random
 
-import torchvision.transforms
-from PIL import Image
 import dateutil.tz
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
+import torchvision.transforms
+from PIL import Image
 from albumentations import HueSaturationValue, GaussNoise, OneOf, \
     Compose
 from albumentations.augmentations.transforms import ChannelShuffle, Cutout, InvertImg, ToSepia, MultiplicativeNoise, \
@@ -20,6 +19,7 @@ from albumentations.augmentations.transforms import ChannelShuffle, Cutout, Inve
 from skimage import color, morphology, filters
 from skimage import io as img
 from torch.cuda.amp import autocast
+from torch.utils.data import Dataset
 
 from imresize import imresize
 
@@ -174,7 +174,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
     @param fake_data:
     @param LAMBDA:
     @param device:
-    @param scaler: Scaler to improve gradient calculation. Gets faster performance with half precision
+    @param given_scaler: Scaler to improve gradient calculation. Gets faster performance with half precision
     @return:
     """
 
@@ -211,7 +211,6 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device, given_scal
     gradients = [p * inv_scale for p in gradients]
     gradients = gradients[0]
 
-    # LAMBDA = 1
     with autocast():
         gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
 

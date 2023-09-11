@@ -1,6 +1,5 @@
-from argparse import ArgumentParser
-
 import os
+from argparse import ArgumentParser
 
 import torch.nn as nn
 import torch.optim as optim
@@ -8,7 +7,6 @@ import torch.utils.data
 from mlflow import log_param, log_metric, start_run
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.utils import make_grid
 from tqdm import tqdm
 
 import functions as functions
@@ -85,7 +83,6 @@ def train(opt):
                 os.makedirs(opt.outf)
             except OSError:
                 print(OSError)
-                pass
             functions.save_image('{}/real_scale.jpg'.format(opt.outf), reals[scale_num])
 
             # If fine tune, load Discriminator, since Generator has stages-1 more blocks
@@ -116,7 +113,6 @@ def train(opt):
 
         # Close writer and return
         writer.close()
-    return
 
 
 def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_large,
@@ -157,13 +153,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
         z_opt = fixed_noise[depth]
     else:
         if depth == 0:
-            if opt.train_mode == "harmonization":
-                z_opt = reals[0]
-            elif opt.train_mode == "editing":
-                z_opt = reals[0] + opt.noise_scaling * functions.generate_noise([opt.nc_im,
-                                                                                 reals_shapes[depth][2],
-                                                                                 reals_shapes[depth][3]],
-                                                                                device=opt.device).detach()
+            z_opt = reals[0]
         else:
             z_opt = functions.generate_noise([opt.nfc, reals_shapes[depth][2], reals_shapes[depth][3]],
                                              device=opt.device)
@@ -245,22 +235,12 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
                 if opt.fine_tune:
                     if opt.train_mode == "harmonization":
                         noise.append(functions.np2torch(naive_img, opt))
-                    elif opt.train_mode == "editing":
-                        noise.append(functions.np2torch(naive_img, opt) + opt.noise_scaling * functions.generate_noise(
-                            [opt.nc_im, reals_shapes[d][2], reals_shapes[d][3]], device=opt.device).detach())
                 else:
                     if opt.train_mode == "harmonization":
                         data = {"image": img_to_augment}
                         augmented = aug.transform(**data)
                         image = augmented["image"]
                         noise.append(functions.np2torch(image, opt))
-                    elif opt.train_mode == "editing":
-                        image = functions.shuffle_grid(img_to_augment)
-                        image = functions.np2torch(image, opt) + \
-                                opt.noise_scaling * functions.generate_noise([3, reals_shapes[d][2],
-                                                                              reals_shapes[d][3]],
-                                                                             device=opt.device).detach()
-                        noise.append(image)
             else:
                 noise.append(functions.generate_noise([opt.nfc, reals_shapes[d][2], reals_shapes[d][3]],
                                                       device=opt.device).detach())
@@ -376,6 +356,7 @@ def train_single_scale(netD, netG, reals, img_to_augment, naive_img, naive_img_l
 
     return fixed_noise, noise_amp, netG, netD
 
+
 def init_G(opt):
     """
     Creates the generator, sends it to gpu and apply weights
@@ -398,6 +379,7 @@ def init_D(opt):
     netD = models.Discriminator(opt).to(opt.device)
     netD.apply(models.weights_init)
     return netD
+
 
 if __name__ == "__main__":
     args = ArgumentParser()
