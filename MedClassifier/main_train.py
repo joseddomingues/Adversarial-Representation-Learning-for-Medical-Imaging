@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 
-import PIL.Image as Image
 import numpy as np
 import torch.cuda
 import torch.nn as nn
@@ -15,25 +14,18 @@ from mammogram_classifier import MammogramClassifier
 
 
 class EarlyStopper:
-    """
-    Early stops the training if validation loss doesn't improve after a given patience.
-    https://github.com/Bjarten/early-stopping-pytorch
-    """
+    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0, path: str = 'current_classifier.pth',
+                 trace_func=print):
+        """
+        Early stops the training if validation loss doesn't improve after a given patience.
+        https://github.com/Bjarten/early-stopping-pytorch
+        @param patience: How long to wait after last time validation loss improved. Default: 7
+        @param verbose: If True, prints a message for each validation loss improvement. Default: False
+        @param delta: Minimum change in the monitored quantity to qualify as an improvement. Default: 0
+        @param path: Path for the checkpoint to be saved to. Default: 'checkpoint.pt'
+        @param trace_func: trace print function. Default: print
+        """
 
-    def __init__(self, patience=7, verbose=False, delta=0, path='current_classifier.pth', trace_func=print):
-        """
-        Args:
-            patience (int): How long to wait after last time validation loss improved.
-                            Default: 7
-            verbose (bool): If True, prints a message for each validation loss improvement.
-                            Default: False
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
-            path (str): Path for the checkpoint to be saved to.
-                            Default: 'checkpoint.pt'
-            trace_func (function): trace print function.
-                            Default: print
-        """
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -44,7 +36,7 @@ class EarlyStopper:
         self.path = path
         self.trace_func = trace_func
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss, model) -> None:
 
         score = -val_loss
 
@@ -61,35 +53,19 @@ class EarlyStopper:
             self.save_checkpoint(val_loss, model)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model):
-        '''Saves model when validation loss decrease.'''
+    def save_checkpoint(self, val_loss, model) -> None:
+        """
+        Saves model when validation loss decrease
+        @param val_loss: Validation loss
+        @param model: Model
+        @return: None
+        """
+
         if self.verbose:
             self.trace_func(
                 f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
-
-
-def process_pipeline_images(augment, transform, im_path):
-    """
-
-    @param augment:
-    @param transform:
-    @param im_path:
-    @return:
-    """
-    target_image = Image.open(im_path)
-
-    if augment:
-        target_image = augment(target_image)
-    else:
-        converter = tvt.ToTensor()
-        target_image = converter(target_image)
-
-    if transform:
-        target_image = transform(target_image)
-
-    return target_image.numpy()
 
 
 def train_classifier(options_map, curr_device):
@@ -119,14 +95,14 @@ def train_classifier(options_map, curr_device):
                                   augment=augmentations)
 
     train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
-    print("Done!")
+    print("Dataset prepared")
 
     # Initialize the network
     # 3 classes -> Benign, Malign, Normal
     print("Creating Classifier...", end=" ")
     nnet = MammogramClassifier(n_classes=3)
     nnet.to(curr_device)
-    print("Done!")
+    print("Model initialized and in memory")
 
     # Create optimizer and loss function
     if options_map.optim == 'adam':
@@ -153,12 +129,6 @@ def train_classifier(options_map, curr_device):
         total = 0
 
         for i, batch in enumerate(train_data, 0):
-            # labels = batch[1].to(curr_device)
-            # images = []
-            # for elem in batch[0]:
-            #     images.append(process_pipeline_images(augment=augmentations, transform=transformations, im_path=elem))
-            # images = torch.tensor(np.array(images), device=curr_device)
-
             # Move batch to gpu
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
 
@@ -200,9 +170,9 @@ def train_classifier(options_map, curr_device):
             break
 
     # Close the writer and save the model
-    print("Train Finished. File saved to ./current_classifier.pth")
     model_path = "./current_classifier.pth"
     torch.save(nnet.state_dict(), model_path)
+    print("Train Finished. File saved to ./current_classifier.pth")
     writer.close()
 
 
@@ -217,4 +187,5 @@ if __name__ == "__main__":
     # Get current device
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    # Train classifier
     train_classifier(opt_map, device)

@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 
-import PIL.Image as Image
 import torch
 import torchvision.transforms as tvt
 from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score, matthews_corrcoef
@@ -8,28 +7,6 @@ from torch.utils.data import DataLoader
 
 from breast_dataset import BreastDataset
 from mammogram_classifier import MammogramClassifier
-
-
-def process_pipeline_images(augment, transform, im_path):
-    """
-
-    @param augment:
-    @param transform:
-    @param im_path:
-    @return:
-    """
-    target_image = Image.open(im_path)
-
-    if augment:
-        target_image = augment(target_image)
-    else:
-        converter = tvt.ToTensor()
-        target_image = converter(target_image)
-
-    if transform:
-        target_image = transform(target_image)
-
-    return target_image.numpy()
 
 
 def evaluate_classifier(options_map, curr_device):
@@ -43,24 +20,11 @@ def evaluate_classifier(options_map, curr_device):
         tvt.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    # Data augmentation techniques
-    # NOTE: ADDED BECAUSE OF THE LACK OF DATA FROM THE PIPELINE. THIS ENSURES IMAGES WILL BE DIFFERENT FROM EACH OTHER
-    augmentations = tvt.Compose([
-        tvt.ToTensor(),
-        tvt.RandomHorizontalFlip(),
-        tvt.RandomVerticalFlip(),
-        tvt.RandomAdjustSharpness(2),
-        tvt.RandomApply(transforms=[
-            tvt.ColorJitter(brightness=[0.5, 0.99], hue=[0.3, 0.5], contrast=[0.5, 0.99], saturation=[0.5, 0.99])]),
-        tvt.RandomApply(transforms=[tvt.GaussianBlur(kernel_size=(5, 5))]),
-        tvt.RandomPerspective()
-    ])
-
     test_dataset = BreastDataset(data_root_folder=options_map.test_folder, transform=transformations,
                                  augment=None)
 
     test_data = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
-    print("Done!")
+    print("Dataset prepared")
 
     # Evaluate each image batch
     classes = ["benign", "malign", "normal"]
@@ -73,7 +37,7 @@ def evaluate_classifier(options_map, curr_device):
     nnet.load_state_dict(torch.load(options_map.model_pth))
     nnet.to(curr_device)
     nnet.eval()
-    print("Done!")
+    print("Model loaded")
 
     print("Initiate Testing")
     running_corrects = 0
@@ -83,13 +47,6 @@ def evaluate_classifier(options_map, curr_device):
     with torch.no_grad():
 
         for batch in test_data:
-
-            # labels = batch[1].to(curr_device)
-            # images = []
-            # for elem in batch[0]:
-            #     images.append(process_pipeline_images(augment=augmentations, transform=transformations, im_path=elem))
-            # images = torch.tensor(np.array(images), device=curr_device)
-
             images, labels = batch[0].to(curr_device), batch[1].to(curr_device)
             pred = nnet(images)
             _, predicted = torch.max(pred.data, 1)
@@ -129,4 +86,5 @@ if __name__ == "__main__":
     # Get current device
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    # Evaluate classifier
     evaluate_classifier(opt_map, device)

@@ -9,40 +9,34 @@ class BreastDataset(Dataset):
     def __init__(self, data_root_folder, transform=None, augment=None):
 
         # Labels map
-        self.labels_map = {
-            "benign": 0,
-            "malign": 1,
-            "normal": 2
-        }
-
-        # Grab global variables
-        self.root_data = data_root_folder
-        self.transform = transform
-        self.augment = augment
+        self.labels_map = {"benign": 0, "malign": 1, "normal": 2}
 
         # For each folder on root get images
         self.images = []
         self.images_target = []
 
-        for folder in os.listdir(self.root_data):
-            for curr_image in os.listdir(os.path.join(self.root_data, folder)):
-                if "_mask" not in curr_image and not curr_image.startswith("."):
-                    curr_image_path = os.path.join(self.root_data, folder, curr_image)
+        for folder in os.listdir(data_root_folder):
+            for curr_image in os.listdir(os.path.join(data_root_folder, folder)):
 
-                    # Reads the current image and preprocess it just in case
-                    target_image = Image.open(curr_image_path)
+                if "_mask" in curr_image or curr_image.startswith("."):
+                    continue
 
-                    if self.augment:
-                        target_image = self.augment(target_image)
-                    else:
-                        converter = tvt.ToTensor()
-                        target_image = converter(target_image)
+                curr_image_path = os.path.join(data_root_folder, folder, curr_image)
 
-                    if self.transform:
-                        target_image = self.transform(target_image)
+                # Reads the current image and preprocess it just in case
+                target_image = Image.open(curr_image_path)
 
-                    self.images.append(target_image)
-                    self.images_target.append(self.labels_map[folder])
+                if augment:
+                    target_image = augment(target_image)
+                else:
+                    converter = tvt.ToTensor()
+                    target_image = converter(target_image)
+
+                if transform:
+                    target_image = transform(target_image)
+
+                self.images.append(target_image)
+                self.images_target.append(self.labels_map[folder])
 
     def __len__(self):
         return len(self.images)
