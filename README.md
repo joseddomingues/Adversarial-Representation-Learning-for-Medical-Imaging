@@ -1,8 +1,7 @@
 # Adversarial Representation Learning for Medical Imaging
 
 ## ⚠️ WARNING ⚠️ 
----
-I have archived this repo as it is no longer maintained.
+**I have archived this repo as it is no longer maintained.**
 
 
 Brief Description
