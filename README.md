@@ -1,4 +1,9 @@
-# Adversarial-Representation-Learning-for-Medical-Imaging
+# Adversarial Representation Learning for Medical Imaging
+
+## ⚠️ WARNING ⚠️ 
+---
+I have archived this repo as it is no longer maintained.
+
 
 Brief Description
 ---
