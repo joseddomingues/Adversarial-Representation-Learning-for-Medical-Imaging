@@ -14,8 +14,8 @@ from PIL import Image, ImageChops
 from skimage import io as img
 
 
-def extract_harmonized_samples(input_folder="/Users/josedaviddomingues/Desktop/harmonised_samples/16_stages_malign",
-                               new_folder_name="/Users/josedaviddomingues/Desktop/malign_harmonised"):
+def extract_harmonized_samples(input_folder="~/Desktop/harmonised_samples/16_stages_malign",
+                               new_folder_name="~/Desktop/malign_harmonised"):
     """
     Extract harmonised samples from input folder
     @param input_folder: The input folder path
